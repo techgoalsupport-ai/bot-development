@@ -509,26 +509,27 @@ print(response.json())`;
 
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full min-w-[780px] text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                    <th className="py-3.5 px-4 sm:px-5">
+                    <th className="py-3.5 px-4 sm:px-5 whitespace-nowrap">
                       Partner / Kolaborator
                     </th>
-                    <th className="py-3.5 px-4 sm:px-5">Prefix API Key</th>
-                    <th className="py-3.5 px-4 sm:px-5">Status</th>
-                    <th className="py-3.5 px-4 sm:px-5 text-right">
+                    <th className="py-3.5 px-4 sm:px-5 whitespace-nowrap">Prefix API Key</th>
+                    <th className="py-3.5 px-4 sm:px-5 whitespace-nowrap">Status</th>
+                    <th className="py-3.5 px-4 sm:px-5 text-right whitespace-nowrap">
                       Penggunaan
                     </th>
-                    <th className="py-3.5 px-4 sm:px-5">Terakhir Dipakai</th>
-                    <th className="py-3.5 px-4 sm:px-5 text-right">Aksi</th>
+                    <th className="py-3.5 px-4 sm:px-5 whitespace-nowrap">Terakhir Dipakai</th>
+                    <th className="py-3.5 px-4 sm:px-5 text-center whitespace-nowrap">Kontrol</th>
+                    <th className="py-3.5 px-4 sm:px-5 text-center whitespace-nowrap">Hapus</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {isLoading ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="py-12 text-center text-slate-400"
                       >
                         <RefreshCw className="w-6 h-6 mx-auto animate-spin text-[#0084D1] mb-2" />
@@ -538,7 +539,7 @@ print(response.json())`;
                   ) : filteredKeys.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="py-12 text-center text-slate-500 space-y-3"
                       >
                         <KeyRound className="w-8 h-8 mx-auto text-slate-300" />
@@ -565,7 +566,7 @@ print(response.json())`;
                         key={item.id}
                         className="hover:bg-slate-50/70 transition-colors"
                       >
-                        <td className="py-3.5 px-4 sm:px-5">
+                        <td className="py-3.5 px-4 sm:px-5 whitespace-nowrap">
                           <div className="font-bold text-slate-900">
                             {item.name}
                           </div>
@@ -573,12 +574,12 @@ print(response.json())`;
                             Dibuat: {item.created_at}
                           </div>
                         </td>
-                        <td className="py-3.5 px-4 sm:px-5">
+                        <td className="py-3.5 px-4 sm:px-5 whitespace-nowrap">
                           <code className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-mono text-[11px] font-semibold">
                             {item.prefix_key}
                           </code>
                         </td>
-                        <td className="py-3.5 px-4 sm:px-5">
+                        <td className="py-3.5 px-4 sm:px-5 whitespace-nowrap">
                           {item.status === "active" ? (
                             <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
                               <ShieldCheck className="w-3.5 h-3.5" />
@@ -591,47 +592,47 @@ print(response.json())`;
                             </span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 sm:px-5 text-right font-mono tabular-nums font-bold text-slate-900">
+                        <td className="py-3.5 px-4 sm:px-5 text-right font-mono tabular-nums font-bold text-slate-900 whitespace-nowrap">
                           {item.usage_count || 0}x
                         </td>
-                        <td className="py-3.5 px-4 sm:px-5 font-mono tabular-nums text-slate-600">
+                        <td className="py-3.5 px-4 sm:px-5 font-mono tabular-nums text-slate-600 whitespace-nowrap">
                           {item.last_used_at || "Belum dipakai"}
                         </td>
-                        <td className="py-3.5 px-4 sm:px-5 text-right">
-                          <div className="inline-flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleStatus(item)}
-                              disabled={togglingId === item.id}
-                              aria-label={
-                                item.status === "active"
-                                  ? `Suspend API Key ${item.name}`
-                                  : `Aktifkan API Key ${item.name}`
-                              }
-                              className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer ${
-                                item.status === "active"
-                                  ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                                  : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                              }`}
-                            >
-                              <Power className="w-3.5 h-3.5" />
-                              <span>
-                                {item.status === "active"
-                                  ? "Suspend"
-                                  : "Aktifkan"}
-                              </span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setKeyToDelete(item)}
-                              aria-label={`Hapus API Key ${item.name}`}
-                              title="Hapus API Key"
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                        <td className="py-3.5 px-4 sm:px-5 text-center whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(item)}
+                            disabled={togglingId === item.id}
+                            aria-label={
+                              item.status === "active"
+                                ? `Suspend API Key ${item.name}`
+                                : `Aktifkan API Key ${item.name}`
+                            }
+                            className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                              item.status === "active"
+                                ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                            }`}
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                            <span>
+                              {item.status === "active"
+                                ? "Suspend"
+                                : "Aktifkan"}
+                            </span>
+                          </button>
+                        </td>
+                        <td className="py-3.5 px-4 sm:px-5 text-center whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => setKeyToDelete(item)}
+                            aria-label={`Hapus API Key ${item.name}`}
+                            title="Hapus API Key"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-rose-600 bg-rose-50/70 hover:bg-rose-100 border border-rose-200 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Hapus</span>
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -784,7 +785,7 @@ print(response.json())`;
 
             {/* Info Parameter */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <div className="space-y-3">
+              <div className="space-y-3 min-w-0">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-bold text-slate-800">
                     Contoh Request
@@ -896,7 +897,7 @@ print(response.json())`;
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-3 min-w-0">
                 <span className="block text-xs font-bold text-slate-800">
                   Contoh Respon Sukses (HTTP 201)
                 </span>
@@ -905,61 +906,63 @@ print(response.json())`;
                 </div>
 
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                      <tr>
-                        <th className="py-2.5 px-3.5">Status</th>
-                        <th className="py-2.5 px-3.5">Kode Error</th>
-                        <th className="py-2.5 px-3.5">Penyebab</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-600">
-                      <tr>
-                        <td className="py-2 px-3.5 font-mono font-bold text-slate-900">
-                          400
-                        </td>
-                        <td className="py-2 px-3.5 font-mono">
-                          INVALID_DURATION
-                        </td>
-                        <td className="py-2 px-3.5">
-                          Durasi atau satuan waktu tidak valid.
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-3.5 font-mono font-bold text-slate-900">
-                          401
-                        </td>
-                        <td className="py-2 px-3.5 font-mono">
-                          INVALID_API_KEY
-                        </td>
-                        <td className="py-2 px-3.5">
-                          Header API Key kosong atau tidak cocok.
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-3.5 font-mono font-bold text-slate-900">
-                          403
-                        </td>
-                        <td className="py-2 px-3.5 font-mono">
-                          API_KEY_SUSPENDED
-                        </td>
-                        <td className="py-2 px-3.5">
-                          API Key dinonaktifkan sementara oleh admin.
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-3.5 font-mono font-bold text-slate-900">
-                          429
-                        </td>
-                        <td className="py-2 px-3.5 font-mono">
-                          RATE_LIMIT_EXCEEDED
-                        </td>
-                        <td className="py-2 px-3.5">
-                          Melebihi batas 60 request per menit.
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full min-w-[460px] text-left text-xs">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                        <tr>
+                          <th className="py-2.5 px-3.5 whitespace-nowrap">Status</th>
+                          <th className="py-2.5 px-3.5 whitespace-nowrap">Kode Error</th>
+                          <th className="py-2.5 px-3.5 whitespace-nowrap">Penyebab</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-600">
+                        <tr>
+                          <td className="py-2 px-3.5 font-mono tabular-nums font-bold text-slate-900 whitespace-nowrap">
+                            400
+                          </td>
+                          <td className="py-2 px-3.5 font-mono whitespace-nowrap">
+                            INVALID_DURATION
+                          </td>
+                          <td className="py-2 px-3.5">
+                            Durasi atau satuan waktu tidak valid.
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3.5 font-mono tabular-nums font-bold text-slate-900 whitespace-nowrap">
+                            401
+                          </td>
+                          <td className="py-2 px-3.5 font-mono whitespace-nowrap">
+                            INVALID_API_KEY
+                          </td>
+                          <td className="py-2 px-3.5">
+                            Header API Key kosong atau tidak cocok.
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3.5 font-mono tabular-nums font-bold text-slate-900 whitespace-nowrap">
+                            403
+                          </td>
+                          <td className="py-2 px-3.5 font-mono whitespace-nowrap">
+                            API_KEY_SUSPENDED
+                          </td>
+                          <td className="py-2 px-3.5">
+                            API Key dinonaktifkan sementara oleh admin.
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3.5 font-mono tabular-nums font-bold text-slate-900 whitespace-nowrap">
+                            429
+                          </td>
+                          <td className="py-2 px-3.5 font-mono whitespace-nowrap">
+                            RATE_LIMIT_EXCEEDED
+                          </td>
+                          <td className="py-2 px-3.5">
+                            Melebihi batas 60 request per menit.
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>

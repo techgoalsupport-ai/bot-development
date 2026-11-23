@@ -167,6 +167,43 @@ export function mergeMandatoryButtonsForCategory(
   return [...mergedMandatory, ...customButtons];
 }
 
+export function buildTemplateSignature(input: {
+  category: TemplateCategory;
+  name: string;
+  content: string;
+  footer_text?: string;
+  buttons?: WhatsAppButton[] | null;
+}): string {
+  const normalizedCategory = (
+    input.category === 'confirmation' ? 'confirm_summary' : String(input.category || '').trim()
+  ) as TemplateCategory;
+  const normalizedName = String(input.name || '').trim();
+  const normalizedContent = String(input.content || '').replace(/\r\n/g, '\n').trim();
+  const normalizedFooter = String(input.footer_text || '').replace(/\r\n/g, '\n').trim();
+  const mergedButtons = mergeMandatoryButtonsForCategory(
+    normalizedCategory,
+    Array.isArray(input.buttons) ? input.buttons : [],
+  );
+  const canonicalButtons = mergedButtons.map((b) => ({
+    type: b.type,
+    name: String(b.name || '').trim(),
+    output: String(b.output || '').trim(),
+    triggerAction: b.triggerAction || undefined,
+    callTargetName: b.callTargetName ? String(b.callTargetName).trim() : undefined,
+    callPhoneNumber: b.callPhoneNumber ? String(b.callPhoneNumber).trim() : undefined,
+    mandatory: Boolean(b.mandatory),
+    mandatoryRole: b.mandatoryRole || undefined,
+  }));
+
+  return JSON.stringify({
+    category: normalizedCategory,
+    name: normalizedName,
+    content: normalizedContent,
+    footer_text: normalizedFooter,
+    buttons: canonicalButtons,
+  });
+}
+
 export function getSuggestedFooterForCategory(category: TemplateCategory): string {
   switch (category) {
     case 'menu':

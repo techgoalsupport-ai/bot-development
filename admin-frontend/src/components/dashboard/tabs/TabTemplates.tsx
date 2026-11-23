@@ -168,17 +168,18 @@ export const TabTemplates: React.FC<TabTemplatesProps> = () => {
     const data = await res.json();
     if (data.success) {
       await fetchTemplates();
-      setExportNotice(
-        `Berhasil mengimpor ${data.importedCount || 0} paket template.${
-          Array.isArray(data.warnings) && data.warnings.length > 0
-            ? ` (${data.warnings.length} tombol wajib dinormalisasi)`
-            : ''
-        }`
-      );
+      const imported = Number(data.importedCount || 0);
+      const skipped = Number(data.skippedCount || 0);
+      const warnCount = Array.isArray(data.warnings) ? data.warnings.length : 0;
+      const noticeText = `Berhasil mengimpor ${imported} paket template.${
+        skipped > 0 ? ` (${skipped} template duplikat dilewati)` : ''
+      }${warnCount > 0 ? ` (${warnCount} tombol wajib dinormalisasi)` : ''}`;
+      setExportNotice(noticeText);
       setTimeout(() => setExportNotice(null), 5000);
       return {
         success: true,
         importedCount: data.importedCount,
+        skippedCount: data.skippedCount,
         warnings: data.warnings,
       };
     }

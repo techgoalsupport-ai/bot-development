@@ -116,6 +116,42 @@ function hydrateTemplateRow(row: any): MessageTemplateRecord {
   };
 }
 
+function buildTemplateSignature(input: {
+  category: TemplateCategory;
+  name: string;
+  content: string;
+  footer_text?: string;
+  buttons?: WhatsAppButton[];
+}): string {
+  const normalizedCategory =
+    input.category === 'confirmation' ? 'confirm_summary' : String(input.category || '').trim();
+  const normalizedName = String(input.name || '').trim();
+  const normalizedContent = String(input.content || '').replace(/\r\n/g, '\n').trim();
+  const normalizedFooter = String(input.footer_text || '').replace(/\r\n/g, '\n').trim();
+  const mergedButtons = mergeMandatoryButtons(
+    normalizedCategory,
+    Array.isArray(input.buttons) ? input.buttons : [],
+  );
+  const canonicalButtons = mergedButtons.map((b) => ({
+    type: b.type,
+    name: String(b.name || '').trim(),
+    output: String(b.output || '').trim(),
+    triggerAction: b.triggerAction || undefined,
+    callTargetName: b.callTargetName ? String(b.callTargetName).trim() : undefined,
+    callPhoneNumber: b.callPhoneNumber ? String(b.callPhoneNumber).trim() : undefined,
+    mandatory: Boolean(b.mandatory),
+    mandatoryRole: b.mandatoryRole || undefined,
+  }));
+
+  return JSON.stringify({
+    category: normalizedCategory,
+    name: normalizedName,
+    content: normalizedContent,
+    footer_text: normalizedFooter,
+    buttons: canonicalButtons,
+  });
+}
+
 export class TemplateService {
   /**
    * Mengambil semua template (untuk Master Admin)
@@ -269,6 +305,8 @@ export class TemplateService {
     options?: { mode?: 'append' | 'replace_category'; defaultActive?: boolean }
   ): {
     importedCount: number;
+    skippedCount: number;
+    skippedItems: Array<{ category: TemplateCategory; name: string }>;
     templates: MessageTemplateRecord[];
     warnings: string[];
   } {
@@ -376,6 +414,7 @@ export class TemplateService {
     const db = getMasterDb();
     const mode = options?.mode === 'replace_category' ? 'replace_category' : 'append';
     const createdIds: number[] = [];
+    const skippedItems: Array<{ category: TemplateCategory; name: string }> = [];
 
     const tx = db.transaction(() => {
       if (mode === 'replace_category') {
@@ -389,6 +428,23 @@ export class TemplateService {
         }
       }
 
+      const seenSignatures = new Set<string>();
+      const existingRows = db
+        .prepare('SELECT category, name, content, footer_text, buttons_json FROM message_templates')
+        .all();
+      for (const row of existingRows) {
+        const hydrated = hydrateTemplateRow(row);
+        seenSignatures.add(
+          buildTemplateSignature({
+            category: hydrated.category,
+            name: hydrated.name,
+            content: hydrated.content,
+            footer_text: hydrated.footer_text,
+            buttons: hydrated.buttons,
+          }),
+        );
+      }
+
       const now = new Date().toISOString();
       const insertStmt = db.prepare(`
         INSERT INTO message_templates (name, category, content, footer_text, buttons_json, is_active, created_at, updated_at)
@@ -396,6 +452,20 @@ export class TemplateService {
       `);
 
       for (const entry of entries) {
+        const signature = buildTemplateSignature({
+          category: entry.category,
+          name: entry.name,
+          content: entry.content,
+          footer_text: entry.footer_text,
+          buttons: entry.buttons,
+        });
+
+        if (seenSignatures.has(signature)) {
+          skippedItems.push({ category: entry.category, name: entry.name });
+          continue;
+        }
+
+        seenSignatures.add(signature);
         const info = insertStmt.run(
           entry.name,
           entry.category,
@@ -418,6 +488,8 @@ export class TemplateService {
 
     return {
       importedCount: importedTemplates.length,
+      skippedCount: skippedItems.length,
+      skippedItems,
       templates: importedTemplates,
       warnings,
     };

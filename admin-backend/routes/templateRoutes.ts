@@ -71,10 +71,19 @@ templateRouter.post('/templates/import-json', (req: Request, res: Response) => {
       defaultActive: defaultActive !== false,
     });
 
-    return res.status(201).json({
+    const summaryMessage =
+      result.importedCount === 0 && result.skippedCount > 0
+        ? `Semua ${result.skippedCount} template dalam JSON sudah tersimpan di database. Tidak ada duplikat yang ditambahkan.`
+        : result.skippedCount > 0
+          ? `Berhasil mengimpor ${result.importedCount} paket template baru (${result.skippedCount} template duplikat dilewati).`
+          : `Berhasil mengimpor ${result.importedCount} paket template.`;
+
+    return res.status(result.importedCount > 0 ? 201 : 200).json({
       success: true,
-      message: `Berhasil mengimpor ${result.importedCount} paket template.`,
+      message: summaryMessage,
       importedCount: result.importedCount,
+      skippedCount: result.skippedCount,
+      skippedItems: result.skippedItems,
       templates: result.templates,
       warnings: result.warnings,
     });
