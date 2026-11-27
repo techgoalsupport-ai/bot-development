@@ -32,7 +32,9 @@ export const TabPartnerApi: React.FC<TabPartnerApiProps> = ({
   showToast,
 }) => {
   const publicApiDocsHref =
-    typeof window !== "undefined" && window.location.pathname.startsWith("/admin/")
+    typeof window !== "undefined" &&
+    (window.location.pathname === "/admin" ||
+      window.location.pathname.startsWith("/admin/"))
       ? "/admin/docs?tab=api"
       : "/docs?tab=api";
   const [keys, setKeys] = useState<CollaboratorApiKey[]>([]);

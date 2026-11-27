@@ -63,7 +63,9 @@ const CATEGORY_TABS: { id: string; label: string; countBadge?: number }[] = [
 
 export const TabTemplates: React.FC<TabTemplatesProps> = () => {
   const publicJsonDocsHref =
-    typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/')
+    typeof window !== 'undefined' &&
+    (window.location.pathname === '/admin' ||
+      window.location.pathname.startsWith('/admin/'))
       ? '/admin/docs?tab=json'
       : '/docs?tab=json';
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);

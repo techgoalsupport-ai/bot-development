@@ -65,19 +65,19 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
   const isLockedMandatory = Boolean(editingButtonId && editingButtonMandatory);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center gap-2">
+        <div className="shrink-0 flex items-center justify-between gap-2 px-4 py-3.5 sm:px-5 sm:py-4 border-b border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-2 min-w-0">
             {isLockedMandatory ? (
-              <Lock className="w-4 h-4 text-amber-600" />
+              <Lock className="w-4 h-4 text-amber-600 shrink-0" />
             ) : editingButtonId ? (
-              <Pencil className="w-4 h-4 text-sky-600" />
+              <Pencil className="w-4 h-4 text-sky-600 shrink-0" />
             ) : (
-              <Plus className="w-4 h-4 text-sky-600" />
+              <Plus className="w-4 h-4 text-sky-600 shrink-0" />
             )}
-            <h3 className="font-semibold text-sm text-slate-900">
+            <h3 className="font-semibold text-sm text-slate-900 truncate">
               {isLockedMandatory
                 ? "Ubah Nama Tombol Wajib"
                 : editingButtonId
@@ -88,18 +88,19 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition cursor-pointer"
+            aria-label="Tutup popup"
+            className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={onSave} className="p-5 space-y-4">
+        <form onSubmit={onSave} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {isLockedMandatory && (
             <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2.5 text-xs text-amber-900">
               <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 min-w-0">
                 <p className="font-semibold">Tombol Wajib Sistem</p>
                 <p className="text-[11px] text-amber-800 leading-relaxed">
                   Hanya nama tampilan tombol yang dapat diubah. Tipe dan fungsi tombol dikunci agar alur bot tetap berjalan normal.
@@ -120,7 +121,7 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
                 onChange={(e) =>
                   setModalBtnType(e.target.value as WhatsAppButtonType)
                 }
-                className={`w-full appearance-none bg-slate-50 border border-slate-300 rounded-lg px-3 py-2.5 pr-8 text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 shadow-2xs ${
+                className={`w-full appearance-none bg-slate-50 border border-slate-300 rounded-lg px-3 py-2.5 pr-9 text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 shadow-2xs ${
                   isLockedMandatory
                     ? "opacity-60 cursor-not-allowed bg-slate-100"
                     : "cursor-pointer"
@@ -175,12 +176,12 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
               </div>
             </div>
           ) : (
-          <div className="space-y-3 pt-1 border-t border-slate-100">
+          <div className="space-y-3 pt-2 border-t border-slate-100">
             {modalBtnType === "quick_reply" && (
               <div className="space-y-3">
                 {/* Dropdown Pemicu Command / Unknown */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                  <label className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-xs font-semibold text-slate-700 mb-1.5">
                     <span>Aksi Pemicu Command (Dropdown)</span>
                     <span className="text-[11px] font-normal text-slate-400">
                       Tentukan respon otomatis
@@ -207,7 +208,7 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
                           setQuickReplyOutput(".menu");
                         }
                       }}
-                      className="w-full appearance-none bg-slate-50 border border-slate-300 rounded-lg px-3 py-2.5 pr-8 text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 cursor-pointer shadow-2xs"
+                      className="w-full appearance-none bg-slate-50 border border-slate-300 rounded-lg px-3 py-2.5 pr-9 text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 cursor-pointer shadow-2xs"
                     >
                       <option value="list">
                         Command: List (Memicu pesan Command List)
@@ -243,27 +244,9 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
 
                 {/* Output Pesan Balasan */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
-                      Output Pesan Balasan
-                    </label>
-                    <div className="flex items-center gap-1">
-                      {["{storeName}", "{ownerName}"].map((ph) => (
-                        <button
-                          key={ph}
-                          type="button"
-                          onClick={() =>
-                            setQuickReplyOutput((prev) =>
-                              `${prev} ${ph}`.trim(),
-                            )
-                          }
-                          className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 cursor-pointer"
-                        >
-                          + {ph}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <label className="block text-xs font-semibold text-slate-700 leading-snug mb-1.5">
+                    Output Pesan Balasan
+                  </label>
                   <input
                     type="text"
                     value={quickReplyOutput}
@@ -281,7 +264,23 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
                     }
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 transition shadow-2xs"
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {["{storeName}", "{ownerName}"].map((ph) => (
+                      <button
+                        key={ph}
+                        type="button"
+                        onClick={() =>
+                          setQuickReplyOutput((prev) =>
+                            `${prev} ${ph}`.trim(),
+                          )
+                        }
+                        className="px-2 py-1 text-[11px] font-mono whitespace-nowrap rounded-md bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition cursor-pointer"
+                      >
+                        + {ph}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5">
                     Teks atau command payload yang dikirim saat tombol ditekan
                     oleh pengguna.
                   </p>
@@ -291,23 +290,9 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
 
             {modalBtnType === "cta_url" && (
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-700">
-                    Output Tautan URL (Dapat berupa https:// atau placeholder)
-                  </label>
-                  <div className="flex items-center gap-1">
-                    {["{webLink}", "{waLink}"].map((ph) => (
-                      <button
-                        key={ph}
-                        type="button"
-                        onClick={() => setUrlOutput(ph)}
-                        className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 cursor-pointer"
-                      >
-                        Set {ph}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <label className="block text-xs font-semibold text-slate-700 leading-snug mb-1.5">
+                  Output Tautan URL (Dapat berupa https:// atau placeholder)
+                </label>
                 <input
                   type="text"
                   value={urlOutput}
@@ -315,7 +300,19 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
                   placeholder="{webLink} atau https://wanztstore.web.id"
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 transition shadow-2xs"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  {["{webLink}", "{waLink}"].map((ph) => (
+                    <button
+                      key={ph}
+                      type="button"
+                      onClick={() => setUrlOutput(ph)}
+                      className="px-2 py-1 text-[11px] font-mono whitespace-nowrap rounded-md bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition cursor-pointer"
+                    >
+                      Set {ph}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5">
                   URL website yang akan terbuka di browser. Gunakan{" "}
                   <code className="text-sky-700 bg-sky-50 px-1 rounded">
                     {"{webLink}"}
@@ -327,29 +324,9 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
 
             {modalBtnType === "cta_copy" && (
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-700">
-                    Output Teks yang Disalin
-                  </label>
-                  <div className="flex items-center gap-1">
-                    {["{adminNumber}", "{ownerNumber}", "{webLink}"].map(
-                      (ph) => (
-                        <button
-                          key={ph}
-                          type="button"
-                          onClick={() =>
-                            setCopyOutput((prev) =>
-                              prev ? `${prev} ${ph}` : ph,
-                            )
-                          }
-                          className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 cursor-pointer"
-                        >
-                          + {ph}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                </div>
+                <label className="block text-xs font-semibold text-slate-700 leading-snug mb-1.5">
+                  Output Teks yang Disalin
+                </label>
                 <input
                   type="text"
                   value={copyOutput}
@@ -357,7 +334,25 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
                   placeholder="Contoh: {adminNumber} atau 081234567890"
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 transition shadow-2xs"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  {["{adminNumber}", "{ownerNumber}", "{webLink}"].map(
+                    (ph) => (
+                      <button
+                        key={ph}
+                        type="button"
+                        onClick={() =>
+                          setCopyOutput((prev) =>
+                            prev ? `${prev} ${ph}` : ph,
+                          )
+                        }
+                        className="px-2 py-1 text-[11px] font-mono whitespace-nowrap rounded-md bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition cursor-pointer"
+                      >
+                        + {ph}
+                      </button>
+                    ),
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5">
                   Teks atau angka yang langsung disalin ke clipboard pengguna di
                   HP.
                 </p>
@@ -365,28 +360,12 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
             )}
 
             {(modalBtnType === "vcard" || modalBtnType === "cta_call") && (
-              <div className="space-y-3">
+              <div className="space-y-3.5">
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
-                      1. Nama Kontak (Misal: Admin Store, Owner, atau{" "}
-                      {"{adminName}"})
-                    </label>
-                    <div className="flex items-center gap-1">
-                      {["{adminName}", "{ownerName}", "{storeName}"].map(
-                        (ph) => (
-                          <button
-                            key={ph}
-                            type="button"
-                            onClick={() => setCallTarget(ph)}
-                            className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 cursor-pointer"
-                          >
-                            Set {ph}
-                          </button>
-                        ),
-                      )}
-                    </div>
-                  </div>
+                  <label className="block text-xs font-semibold text-slate-700 leading-snug mb-1.5">
+                    1. Nama Kontak (Misal: Admin Store, Owner, atau{" "}
+                    {"{adminName}"})
+                  </label>
                   <input
                     type="text"
                     value={callTarget}
@@ -394,26 +373,26 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
                     placeholder="Contoh: {adminName} atau Admin Toko"
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 transition shadow-2xs"
                   />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
-                      2. Nomor WhatsApp Kontak (Misal: 628... atau{" "}
-                      {"{ownerNumber}"})
-                    </label>
-                    <div className="flex items-center gap-1">
-                      {["{ownerNumber}", "{adminNumber}"].map((ph) => (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {["{adminName}", "{ownerName}", "{storeName}"].map(
+                      (ph) => (
                         <button
                           key={ph}
                           type="button"
-                          onClick={() => setCallPhone(ph)}
-                          className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 cursor-pointer"
+                          onClick={() => setCallTarget(ph)}
+                          className="px-2 py-1 text-[11px] font-mono whitespace-nowrap rounded-md bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition cursor-pointer"
                         >
                           Set {ph}
                         </button>
-                      ))}
-                    </div>
+                      ),
+                    )}
                   </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 leading-snug mb-1.5">
+                    2. Nomor WhatsApp Kontak (Misal: 628... atau{" "}
+                    {"{ownerNumber}"})
+                  </label>
                   <input
                     type="text"
                     value={callPhone}
@@ -421,7 +400,19 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
                     placeholder="Contoh: {ownerNumber} atau 6281234567890"
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 transition shadow-2xs"
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {["{ownerNumber}", "{adminNumber}"].map((ph) => (
+                      <button
+                        key={ph}
+                        type="button"
+                        onClick={() => setCallPhone(ph)}
+                        className="px-2 py-1 text-[11px] font-mono whitespace-nowrap rounded-md bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition cursor-pointer"
+                      >
+                        Set {ph}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5">
                     Saat tombol ini ditekan di WhatsApp, bot akan otomatis
                     mengirimkan kartu kontak (vCard) nomor ini. Anda dapat
                     memasukkan placeholder{" "}
@@ -483,13 +474,13 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              className="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition cursor-pointer whitespace-nowrap"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 active:scale-[0.99] transition shadow-xs cursor-pointer flex items-center gap-1.5"
+              className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 active:scale-[0.99] transition shadow-xs cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
             >
               {editingButtonId ? (
                 <>

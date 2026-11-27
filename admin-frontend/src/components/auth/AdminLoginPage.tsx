@@ -9,7 +9,6 @@ import {
   Loader2,
   AlertCircle,
   Clock,
-  ArrowLeft,
   Info,
   BookOpen,
 } from "lucide-react";
@@ -265,26 +264,20 @@ export function AdminLoginPage({
           </div>
         </div>
 
-        {/* Tautan Dokumentasi & Web Toko */}
-        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-center">
+        {/* Tautan Dokumentasi Admin */}
+        <div className="flex justify-center">
           <a
             href={
               typeof window !== "undefined" &&
-              window.location.pathname.startsWith("/admin/")
+              (window.location.pathname === "/admin" ||
+                window.location.pathname.startsWith("/admin/"))
                 ? "/admin/docs"
                 : "/docs"
             }
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0084D1] hover:text-[#0073B7] transition"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-sky-50/70 border border-slate-200 hover:border-sky-300 text-xs font-semibold text-[#0084D1] shadow-2xs transition-colors whitespace-nowrap"
           >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Dokumentasi JSON &amp; API</span>
-          </a>
-          <a
-            href="https://domainpenyewa.com"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-[#0084D1] transition"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Kembali ke Dashboard Web Toko</span>
+            <BookOpen className="w-3.5 h-3.5 shrink-0" />
+            <span>Buka Dokumentasi API &amp; Template</span>
           </a>
         </div>
       </div>

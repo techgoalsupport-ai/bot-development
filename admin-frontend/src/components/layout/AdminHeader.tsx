@@ -14,6 +14,7 @@ import {
   KeyRound,
   LogOut,
   Flag,
+  BookOpen,
 } from "lucide-react";
 import { AdminNavTab } from "./AdminSidebar.tsx";
 
@@ -141,7 +142,25 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Tombol Dokumentasi */}
+          <a
+            href={
+              typeof window !== "undefined" &&
+              (window.location.pathname === "/admin" ||
+                window.location.pathname.startsWith("/admin/"))
+                ? "/admin/docs"
+                : "/docs"
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-[#0084D1] bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-300 rounded-xl transition-all active:scale-95 shadow-2xs whitespace-nowrap"
+            title="Buka Dokumentasi Partner & Template"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-[#0084D1] shrink-0" />
+            <span className="hidden sm:inline">Dokumentasi</span>
+          </a>
+
           {/* Tombol Muat Ulang Data */}
           <button
             type="button"
@@ -161,10 +180,10 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
               type="button"
               onClick={onLogout}
               data-testid="admin-header-logout-btn"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50/70 hover:bg-rose-100 border border-rose-200/80 rounded-xl transition-all active:scale-95 cursor-pointer shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50/70 hover:bg-rose-100 border border-rose-200/80 rounded-xl transition-all active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap"
               title="Keluar dari Dashboard Master Admin"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden sm:inline">Keluar</span>
             </button>
           )}
