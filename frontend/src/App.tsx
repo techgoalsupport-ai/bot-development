@@ -1,8 +1,15 @@
+import { useEffect, useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { LoginPage } from './components/auth/LoginPage';
 import { TenantDashboard } from './components/dashboard/TenantDashboard';
+import { PublicDocumentationPage } from '../../shared/PublicDocumentationPage.tsx';
 
-export default function App() {
+function isPublicDocsPath(pathname: string): boolean {
+  const normalized = pathname.replace(/\/+$/, '') || '/';
+  return normalized === '/docs';
+}
+
+function AuthenticatedTenantApp() {
   const auth = useAuth();
 
   // 1. Tampilkan spinner saat memverifikasi sesi login awal dari server
@@ -27,3 +34,24 @@ export default function App() {
 
   return <TenantDashboard key={activeTenantKey} auth={auth} />;
 }
+
+export default function App() {
+  const [pathname, setPathname] = useState<string>(() =>
+    typeof window !== 'undefined' ? window.location.pathname : '/'
+  );
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setPathname(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  if (isPublicDocsPath(pathname)) {
+    return <PublicDocumentationPage variant="tenant" />;
+  }
+
+  return <AuthenticatedTenantApp />;
+}
+

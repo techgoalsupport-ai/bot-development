@@ -169,6 +169,33 @@ Masa aktif sewa bot WhatsApp toko Anda akan segera berakhir dalam *{remainingTim
 
 Agar operasional pesanan otomatis dan transaksi pelanggan di WhatsApp tidak terputus, silakan lakukan perpanjangan masa sewa ke Master Admin sebelum batas waktu berakhir.`;
 
+export const DEFAULT_KICK_ANTI_KUDETA_TEMPLATE = `[AntiKudeta] @{pelakuNumber} terdeteksi mencoba mengeluarkan {ownerName} (Owner)`;
+
+export const DEFAULT_KICK_BOT_NOT_ADMIN_TEMPLATE = `⚠️ *Bot Bukan Admin*
+Bot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat mengeluarkan anggota.
+
+Silakan jadikan nomor bot sebagai admin grup terlebih dahulu.`;
+
+export const DEFAULT_KICK_SUCCESS_TEMPLATE = `✅ @{targetNumber} berhasil dikeluarkan dari grup *{groupName}* oleh @{pelakuNumber}.`;
+
+export const DEFAULT_OPEN_BOT_NOT_ADMIN_TEMPLATE = `⚠️ *Bot Bukan Admin*
+Bot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat membuka pengaturan chat grup.
+
+Silakan jadikan nomor bot sebagai admin grup terlebih dahulu.`;
+
+export const DEFAULT_OPEN_ALREADY_TEMPLATE = `ℹ️ Kondisi grup *{groupName}* saat ini sudah dalam keadaan terbuka (semua anggota dapat mengirim pesan).`;
+
+export const DEFAULT_OPEN_SUCCESS_TEMPLATE = `🔓 Grup *{groupName}* berhasil dibuka oleh @{pelakuNumber}. Sekarang semua anggota dapat mengirim pesan.`;
+
+export const DEFAULT_CLOSE_BOT_NOT_ADMIN_TEMPLATE = `⚠️ *Bot Bukan Admin*
+Bot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat menutup pengaturan chat grup.
+
+Silakan jadikan nomor bot sebagai admin grup terlebih dahulu.`;
+
+export const DEFAULT_CLOSE_ALREADY_TEMPLATE = `ℹ️ Kondisi grup *{groupName}* saat ini sudah dalam keadaan ditutup (hanya admin yang dapat mengirim pesan).`;
+
+export const DEFAULT_CLOSE_SUCCESS_TEMPLATE = `🔒 Grup *{groupName}* berhasil ditutup oleh @{pelakuNumber}. Sekarang hanya admin yang dapat mengirim pesan.`;
+
 export const DEFAULT_API_CONFIG: ApiConfig = {
   xavieraApiKey: '',
   xavieraBaseUrl: 'https://xavierastore.com/api/v1',
@@ -206,6 +233,24 @@ export const DEFAULT_CONFIG: CommandsConfig = {
   contactAdminEmptyFooter: '{storeName} • Layanan Pelanggan',
   expiryWarningOwnerText: DEFAULT_EXPIRY_WARNING_OWNER_TEMPLATE,
   expiryWarningOwnerFooter: '{storeName} Official • Notifikasi Otomatis',
+  kickAntiKudetaText: DEFAULT_KICK_ANTI_KUDETA_TEMPLATE,
+  kickAntiKudetaFooter: '{storeName} • Proteksi AntiKudeta',
+  kickBotNotAdminText: DEFAULT_KICK_BOT_NOT_ADMIN_TEMPLATE,
+  kickBotNotAdminFooter: '{storeName} • Moderasi Grup',
+  kickSuccessText: DEFAULT_KICK_SUCCESS_TEMPLATE,
+  kickSuccessFooter: '{storeName} • Moderasi Grup',
+  openBotNotAdminText: DEFAULT_OPEN_BOT_NOT_ADMIN_TEMPLATE,
+  openBotNotAdminFooter: '{storeName} • Moderasi Grup',
+  openAlreadyText: DEFAULT_OPEN_ALREADY_TEMPLATE,
+  openAlreadyFooter: '{storeName} • Moderasi Grup',
+  openSuccessText: DEFAULT_OPEN_SUCCESS_TEMPLATE,
+  openSuccessFooter: '{storeName} • Moderasi Grup',
+  closeBotNotAdminText: DEFAULT_CLOSE_BOT_NOT_ADMIN_TEMPLATE,
+  closeBotNotAdminFooter: '{storeName} • Moderasi Grup',
+  closeAlreadyText: DEFAULT_CLOSE_ALREADY_TEMPLATE,
+  closeAlreadyFooter: '{storeName} • Moderasi Grup',
+  closeSuccessText: DEFAULT_CLOSE_SUCCESS_TEMPLATE,
+  closeSuccessFooter: '{storeName} • Moderasi Grup',
   ...DEFAULT_API_CONFIG,
 };
 
@@ -544,6 +589,53 @@ export function saveContactStatusConfig(update: any) {
   return merged;
 }
 
+export function loadGroupModerationConfig() {
+  const defaults = {
+    kickAntiKudetaText: DEFAULT_KICK_ANTI_KUDETA_TEMPLATE,
+    kickAntiKudetaFooter: '{storeName} • Proteksi AntiKudeta',
+    kickBotNotAdminText: DEFAULT_KICK_BOT_NOT_ADMIN_TEMPLATE,
+    kickBotNotAdminFooter: '{storeName} • Moderasi Grup',
+    kickSuccessText: DEFAULT_KICK_SUCCESS_TEMPLATE,
+    kickSuccessFooter: '{storeName} • Moderasi Grup',
+    openBotNotAdminText: DEFAULT_OPEN_BOT_NOT_ADMIN_TEMPLATE,
+    openBotNotAdminFooter: '{storeName} • Moderasi Grup',
+    openAlreadyText: DEFAULT_OPEN_ALREADY_TEMPLATE,
+    openAlreadyFooter: '{storeName} • Moderasi Grup',
+    openSuccessText: DEFAULT_OPEN_SUCCESS_TEMPLATE,
+    openSuccessFooter: '{storeName} • Moderasi Grup',
+    closeBotNotAdminText: DEFAULT_CLOSE_BOT_NOT_ADMIN_TEMPLATE,
+    closeBotNotAdminFooter: '{storeName} • Moderasi Grup',
+    closeAlreadyText: DEFAULT_CLOSE_ALREADY_TEMPLATE,
+    closeAlreadyFooter: '{storeName} • Moderasi Grup',
+    closeSuccessText: DEFAULT_CLOSE_SUCCESS_TEMPLATE,
+    closeSuccessFooter: '{storeName} • Moderasi Grup',
+  };
+  try {
+    const row = db.prepare('SELECT config_data FROM commands_config WHERE command_type = ?').get('group_moderation') as any;
+    if (row && row.config_data) {
+      return { ...defaults, ...JSON.parse(row.config_data) };
+    }
+  } catch (err) {
+    console.error('Gagal membaca group_moderation config dari SQLite:', err);
+  }
+  return defaults;
+}
+
+export function saveGroupModerationConfig(update: any) {
+  const current = loadGroupModerationConfig();
+  const merged = { ...current, ...update };
+  const now = new Date().toISOString();
+  try {
+    db.prepare(`
+      INSERT OR REPLACE INTO commands_config (command_type, config_data, updated_at)
+      VALUES (?, ?, ?)
+    `).run('group_moderation', JSON.stringify(merged), now);
+  } catch (err) {
+    console.error('Gagal menyimpan group_moderation config ke SQLite:', err);
+  }
+  return merged;
+}
+
 export function loadResponseExtras(): ResponseExtrasMap {
   let stored: ResponseExtrasMap = {};
   try {
@@ -713,6 +805,7 @@ export function loadCommandsConfig(): CommandsConfig {
   const txStatus = loadTransactionStatusConfig();
   const notifFlow = loadNotificationFlowConfig();
   const contactStatus = loadContactStatusConfig();
+  const groupModeration = loadGroupModerationConfig();
   const responseExtras = loadResponseExtras();
   const api = loadApiConfig();
 
@@ -767,6 +860,25 @@ export function loadCommandsConfig(): CommandsConfig {
     contactAdminEmptyFooter: contactStatus.contactAdminEmptyFooter,
     expiryWarningOwnerText: contactStatus.expiryWarningOwnerText,
     expiryWarningOwnerFooter: contactStatus.expiryWarningOwnerFooter,
+    // Respon Moderasi Grup
+    kickAntiKudetaText: groupModeration.kickAntiKudetaText,
+    kickAntiKudetaFooter: groupModeration.kickAntiKudetaFooter,
+    kickBotNotAdminText: groupModeration.kickBotNotAdminText,
+    kickBotNotAdminFooter: groupModeration.kickBotNotAdminFooter,
+    kickSuccessText: groupModeration.kickSuccessText,
+    kickSuccessFooter: groupModeration.kickSuccessFooter,
+    openBotNotAdminText: groupModeration.openBotNotAdminText,
+    openBotNotAdminFooter: groupModeration.openBotNotAdminFooter,
+    openAlreadyText: groupModeration.openAlreadyText,
+    openAlreadyFooter: groupModeration.openAlreadyFooter,
+    openSuccessText: groupModeration.openSuccessText,
+    openSuccessFooter: groupModeration.openSuccessFooter,
+    closeBotNotAdminText: groupModeration.closeBotNotAdminText,
+    closeBotNotAdminFooter: groupModeration.closeBotNotAdminFooter,
+    closeAlreadyText: groupModeration.closeAlreadyText,
+    closeAlreadyFooter: groupModeration.closeAlreadyFooter,
+    closeSuccessText: groupModeration.closeSuccessText,
+    closeSuccessFooter: groupModeration.closeSuccessFooter,
     responseExtras,
     xavieraApiKey: api.xavieraApiKey,
     xavieraBaseUrl: api.xavieraBaseUrl,
@@ -914,6 +1026,48 @@ export function saveCommandsConfig(
       ...(newConfig.contactAdminEmptyFooter !== undefined && { contactAdminEmptyFooter: newConfig.contactAdminEmptyFooter }),
       ...(newConfig.expiryWarningOwnerText !== undefined && { expiryWarningOwnerText: newConfig.expiryWarningOwnerText }),
       ...(newConfig.expiryWarningOwnerFooter !== undefined && { expiryWarningOwnerFooter: newConfig.expiryWarningOwnerFooter }),
+    });
+  }
+
+  if (
+    newConfig.kickAntiKudetaText !== undefined ||
+    newConfig.kickAntiKudetaFooter !== undefined ||
+    newConfig.kickBotNotAdminText !== undefined ||
+    newConfig.kickBotNotAdminFooter !== undefined ||
+    newConfig.kickSuccessText !== undefined ||
+    newConfig.kickSuccessFooter !== undefined ||
+    newConfig.openBotNotAdminText !== undefined ||
+    newConfig.openBotNotAdminFooter !== undefined ||
+    newConfig.openAlreadyText !== undefined ||
+    newConfig.openAlreadyFooter !== undefined ||
+    newConfig.openSuccessText !== undefined ||
+    newConfig.openSuccessFooter !== undefined ||
+    newConfig.closeBotNotAdminText !== undefined ||
+    newConfig.closeBotNotAdminFooter !== undefined ||
+    newConfig.closeAlreadyText !== undefined ||
+    newConfig.closeAlreadyFooter !== undefined ||
+    newConfig.closeSuccessText !== undefined ||
+    newConfig.closeSuccessFooter !== undefined
+  ) {
+    saveGroupModerationConfig({
+      ...(newConfig.kickAntiKudetaText !== undefined && { kickAntiKudetaText: newConfig.kickAntiKudetaText }),
+      ...(newConfig.kickAntiKudetaFooter !== undefined && { kickAntiKudetaFooter: newConfig.kickAntiKudetaFooter }),
+      ...(newConfig.kickBotNotAdminText !== undefined && { kickBotNotAdminText: newConfig.kickBotNotAdminText }),
+      ...(newConfig.kickBotNotAdminFooter !== undefined && { kickBotNotAdminFooter: newConfig.kickBotNotAdminFooter }),
+      ...(newConfig.kickSuccessText !== undefined && { kickSuccessText: newConfig.kickSuccessText }),
+      ...(newConfig.kickSuccessFooter !== undefined && { kickSuccessFooter: newConfig.kickSuccessFooter }),
+      ...(newConfig.openBotNotAdminText !== undefined && { openBotNotAdminText: newConfig.openBotNotAdminText }),
+      ...(newConfig.openBotNotAdminFooter !== undefined && { openBotNotAdminFooter: newConfig.openBotNotAdminFooter }),
+      ...(newConfig.openAlreadyText !== undefined && { openAlreadyText: newConfig.openAlreadyText }),
+      ...(newConfig.openAlreadyFooter !== undefined && { openAlreadyFooter: newConfig.openAlreadyFooter }),
+      ...(newConfig.openSuccessText !== undefined && { openSuccessText: newConfig.openSuccessText }),
+      ...(newConfig.openSuccessFooter !== undefined && { openSuccessFooter: newConfig.openSuccessFooter }),
+      ...(newConfig.closeBotNotAdminText !== undefined && { closeBotNotAdminText: newConfig.closeBotNotAdminText }),
+      ...(newConfig.closeBotNotAdminFooter !== undefined && { closeBotNotAdminFooter: newConfig.closeBotNotAdminFooter }),
+      ...(newConfig.closeAlreadyText !== undefined && { closeAlreadyText: newConfig.closeAlreadyText }),
+      ...(newConfig.closeAlreadyFooter !== undefined && { closeAlreadyFooter: newConfig.closeAlreadyFooter }),
+      ...(newConfig.closeSuccessText !== undefined && { closeSuccessText: newConfig.closeSuccessText }),
+      ...(newConfig.closeSuccessFooter !== undefined && { closeSuccessFooter: newConfig.closeSuccessFooter }),
     });
   }
 

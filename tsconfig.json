@@ -19,5 +19,5 @@
       "@/*": ["./frontend/src/*"]
     }
   },
-  "include": ["frontend/src", "admin-frontend/src", "backend", "admin-backend", "server.ts", "vite.config.ts"]
+  "include": ["frontend/src", "admin-frontend/src", "shared", "backend", "admin-backend", "server.ts", "vite.config.ts"]
 }

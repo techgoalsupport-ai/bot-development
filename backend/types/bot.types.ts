@@ -50,7 +50,16 @@ export type ResponseConfigKey =
   | 'promo_cancelled'
   | 'contact_owner_empty'
   | 'contact_admin_empty'
-  | 'expiry_warning_owner';
+  | 'expiry_warning_owner'
+  | 'kick_anti_kudeta'
+  | 'kick_bot_not_admin'
+  | 'kick_success'
+  | 'open_bot_not_admin'
+  | 'open_already'
+  | 'open_success'
+  | 'close_bot_not_admin'
+  | 'close_already'
+  | 'close_success';
 
 export type MandatoryButtonRole =
   | 'carousel_order'
@@ -201,6 +210,25 @@ export interface CommandsConfig {
   contactAdminEmptyFooter?: string;
   expiryWarningOwnerText?: string;
   expiryWarningOwnerFooter?: string;
+  // Respon Moderasi & Keamanan Grup (Kick, Open, Close & AntiKudeta)
+  kickAntiKudetaText?: string;
+  kickAntiKudetaFooter?: string;
+  kickBotNotAdminText?: string;
+  kickBotNotAdminFooter?: string;
+  kickSuccessText?: string;
+  kickSuccessFooter?: string;
+  openBotNotAdminText?: string;
+  openBotNotAdminFooter?: string;
+  openAlreadyText?: string;
+  openAlreadyFooter?: string;
+  openSuccessText?: string;
+  openSuccessFooter?: string;
+  closeBotNotAdminText?: string;
+  closeBotNotAdminFooter?: string;
+  closeAlreadyText?: string;
+  closeAlreadyFooter?: string;
+  closeSuccessText?: string;
+  closeSuccessFooter?: string;
   // Konfigurasi Foto & Tombol Per-Respon
   responseExtras?: ResponseExtrasMap;
   xavieraApiKey?: string;

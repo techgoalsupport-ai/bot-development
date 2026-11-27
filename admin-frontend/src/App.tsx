@@ -19,6 +19,7 @@ import { TabMasterSettings } from './components/dashboard/tabs/TabMasterSettings
 import { TabBroadcast } from './components/dashboard/tabs/TabBroadcast.tsx';
 import { TabReports } from './components/dashboard/tabs/TabReports.tsx';
 import { AdminLoginPage } from './components/auth/AdminLoginPage.tsx';
+import { PublicDocumentationPage } from '../../shared/PublicDocumentationPage.tsx';
 import {
   MasterAdminProfile,
   adminFetch,
@@ -28,18 +29,33 @@ import {
   setAdminToken,
 } from './utils/adminAuth.ts';
 import {
+  DEFAULT_ADMIN_TAB,
+  clearPersistedAdminTab,
+  getInitialAdminTab,
+  persistAdminTab,
+} from './utils/adminTabPersistence.ts';
+import {
   BarChart3,
   Server,
   MessageSquare,
   Loader2,
 } from 'lucide-react';
 
-export default function App() {
+function isPublicAdminDocsPath(pathname: string): boolean {
+  const normalized = pathname.replace(/\/+$/, '') || '/';
+  return normalized === '/docs' || normalized === '/admin/docs';
+}
+
+function AuthenticatedAdminApp() {
   const [authStatus, setAuthStatus] = useState<'checking' | 'unauthenticated' | 'authenticated'>('checking');
   const [adminUser, setAdminUser] = useState<MasterAdminProfile | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
 
-  const [selectedNavTab, setSelectedNavTab] = useState<AdminNavTab>('units');
+  const [selectedNavTab, setSelectedNavTabState] = useState<AdminNavTab>(() => getInitialAdminTab());
+  const setSelectedNavTab = useCallback((tab: AdminNavTab) => {
+    const valid = persistAdminTab(tab, 'push');
+    setSelectedNavTabState(valid);
+  }, []);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
@@ -138,6 +154,20 @@ export default function App() {
     };
   }, [fetchData]);
 
+  useEffect(() => {
+    if (authStatus === 'authenticated') {
+      persistAdminTab(selectedNavTab, 'replace');
+    }
+  }, [authStatus]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setSelectedNavTabState(getInitialAdminTab());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const handleLoginSuccess = (token: string, admin: MasterAdminProfile) => {
     setAdminToken(token);
     setAdminUser(admin);
@@ -153,10 +183,11 @@ export default function App() {
       // Tetap lanjut bersihkan sesi lokal jika request logout gagal
     }
     clearAdminToken();
+    clearPersistedAdminTab();
     setAdminUser(null);
     setTenants([]);
     setStats(null);
-    setSelectedNavTab('units');
+    setSelectedNavTabState(DEFAULT_ADMIN_TAB);
     setAuthNotice('Anda telah keluar dari sesi Master Admin.');
     setAuthStatus('unauthenticated');
   };
@@ -557,4 +588,24 @@ export default function App() {
       />
     </div>
   );
+}
+
+export default function App() {
+  const [pathname, setPathname] = useState<string>(() =>
+    typeof window !== 'undefined' ? window.location.pathname : '/'
+  );
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setPathname(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  if (isPublicAdminDocsPath(pathname)) {
+    return <PublicDocumentationPage variant="admin" />;
+  }
+
+  return <AuthenticatedAdminApp />;
 }

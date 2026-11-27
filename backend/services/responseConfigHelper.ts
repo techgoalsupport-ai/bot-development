@@ -38,6 +38,15 @@ export const ALL_RESPONSE_CONFIG_KEYS: ResponseConfigKey[] = [
   'contact_owner_empty',
   'contact_admin_empty',
   'expiry_warning_owner',
+  'kick_anti_kudeta',
+  'kick_bot_not_admin',
+  'kick_success',
+  'open_bot_not_admin',
+  'open_already',
+  'open_success',
+  'close_bot_not_admin',
+  'close_already',
+  'close_success',
 ];
 
 export const MANDATORY_BUTTON_SPECS: Partial<Record<ResponseConfigKey, WhatsAppButton[]>> = {
@@ -607,15 +616,12 @@ export async function sendConfiguredBotMessage(
   markOutgoingTextAsBotSent(targetJid, text);
 
   // Kasus 1: Tidak ada tombol interaktif (0 tombol)
+  // Sama seperti command Menu: tanpa tombol interaktif, footer tidak disertakan sama sekali.
   if (nativeFlowButtons.length === 0) {
-    const captionOrText = footerText && footerText.trim()
-      ? `${text}\n\n_${footerText.trim()}_`
-      : text;
-
     try {
       const payload: any = imageInput
-        ? { image: imageInput, caption: captionOrText }
-        : { text: captionOrText };
+        ? { image: imageInput, caption: text }
+        : { text };
       if (mentions && mentions.length > 0) payload.mentions = mentions;
 
       const sent = await sock.sendMessage(

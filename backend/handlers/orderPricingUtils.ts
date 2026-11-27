@@ -158,6 +158,6 @@ export async function resolveAuthoritativeOrderItem(
     sellingPrice: Math.round(sellingCalc.sellingPrice),
     initialMargin: Math.max(0, Math.round(sellingCalc.margin)),
     stock,
-    category: (matched.category || 'Digital').trim(),
+    category: (matched.category || '').trim(),
   };
 }

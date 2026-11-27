@@ -4,20 +4,18 @@ import {
   Store,
   Wallet,
   Smartphone,
-  Server,
   Users,
   MessageSquareCode,
   Package,
   Share2,
   Gamepad2,
-  Receipt,
   PanelLeftClose,
   PanelLeftOpen,
   Radio,
   X,
   LogOut,
-  Bot,
   Flag,
+  ShieldCheck,
 } from 'lucide-react';
 import { BotStatusResponse, StoreInfoConfig } from '../../types/dashboard.types';
 
@@ -84,43 +82,38 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
   const statusBadge = getBotStatusBadge();
 
-  // 10 Menu Navigasi dalam URUTAN PERSIS yang diminta oleh Pengguna:
-  // 1. Info Profil (Paling atas)
-  // 2. Saldo (Di bawah Info Profil)
-  // 3. Connection
-  // 4. Koneksi Layanan
-  // 5. Management group
-  // 6. Respon Bot
-  // 7. Aplikasi Premium
-  // 8. SMM
-  // 9. TopUp
-  // 10. Transaksi
+  // Menu Navigasi Utama (Saldo & Transaksi digabung dalam 1 halaman):
   const navItems: NavItem[] = [
     {
-      id: 'Info Profil',
-      label: 'Info Profil',
+      id: 'Pengaturan Toko',
+      label: 'Pengaturan Toko',
       icon: Store,
-      aliases: ['Store Info'],
+      badge: botData.accountStatus === 'suspended' ? 'Suspend' : botData.accountStatus === 'expired' ? 'Expired' : undefined,
+      badgeColor: botData.accountStatus === 'suspended' ? 'bg-rose-600' : 'bg-amber-600',
+      aliases: [
+        'Info Profil',
+        'Store Info',
+        'Management Bot',
+        'Bot Management',
+        'ManagementBot',
+        'Masa Sewa',
+        'Voucher Token',
+      ],
     },
     {
-      id: 'Saldo',
-      label: 'Saldo',
+      id: 'Saldo & Transaksi',
+      label: 'Saldo & Transaksi',
       icon: Wallet,
-      aliases: ['tabSaldo'],
+      badge: transactionsCount > 0 ? transactionsCount : undefined,
+      aliases: ['Saldo', 'tabSaldo', 'Transaksi', 'tab05', 'Keuangan'],
     },
     {
-      id: 'Connection',
-      label: 'Connection',
+      id: 'Koneksi & Layanan',
+      label: 'Koneksi & Layanan',
       icon: Smartphone,
       badge: statusBadge.label,
       badgeColor: botData.status === 'connected' ? 'bg-emerald-600' : 'bg-[#0084D1]',
-      aliases: ['tab06'],
-    },
-    {
-      id: 'Koneksi Layanan',
-      label: 'Koneksi Layanan',
-      icon: Server,
-      aliases: ['Layanan', 'API'],
+      aliases: ['Connection', 'tab06', 'Koneksi Layanan', 'Layanan', 'API'],
     },
     {
       id: 'Management group',
@@ -155,19 +148,10 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       aliases: ['Top Up', 'tab03'],
     },
     {
-      id: 'Transaksi',
-      label: 'Transaksi',
-      icon: Receipt,
-      badge: transactionsCount > 0 ? transactionsCount : undefined,
-      aliases: ['tab05'],
-    },
-    {
-      id: 'Management Bot',
-      label: 'Management Bot',
-      icon: Bot,
-      badge: botData.accountStatus === 'suspended' ? 'Suspend' : botData.accountStatus === 'expired' ? 'Expired' : undefined,
-      badgeColor: botData.accountStatus === 'suspended' ? 'bg-rose-600' : 'bg-amber-600',
-      aliases: ['Bot Management', 'ManagementBot', 'Masa Sewa', 'Voucher Token'],
+      id: 'Keamanan Akun',
+      label: 'Keamanan Akun',
+      icon: ShieldCheck,
+      aliases: ['Akun', 'Keamanan', 'Kredensial', 'Ubah Password'],
     },
     {
       id: 'Laporan',
@@ -285,7 +269,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               {/* Monogram Brand Avatar */}
               <button
                 type="button"
-                onClick={() => handleNavClick('Info Profil')}
+                onClick={() => handleNavClick('Pengaturan Toko')}
                 title={`Toko: ${storeInfo.storeName || 'Wanzt Store'}`}
                 className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#0084D1] to-sky-400 text-white flex items-center justify-center font-bold text-base shadow-sm shadow-[#0084D1]/20 cursor-pointer hover:opacity-95 transition"
               >
@@ -297,7 +281,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               {/* Brand Avatar + Title */}
               <button
                 type="button"
-                onClick={() => handleNavClick('Info Profil')}
+                onClick={() => handleNavClick('Pengaturan Toko')}
                 className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer group flex-1"
               >
                 <div className="w-9.5 h-9.5 rounded-xl bg-gradient-to-tr from-[#0084D1] to-sky-400 text-white flex items-center justify-center font-bold text-sm shadow-sm shadow-[#0084D1]/20 shrink-0 group-hover:opacity-95 transition">
@@ -345,7 +329,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             {collapsed ? (
               <button
                 type="button"
-                onClick={() => handleNavClick('Connection')}
+                onClick={() => handleNavClick('Koneksi & Layanan')}
                 title={`Status: ${statusBadge.label}`}
                 className={`w-full h-11 rounded-xl border flex items-center justify-center transition-all cursor-pointer shadow-2xs ${
                   botData.status === 'connected'
@@ -358,7 +342,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             ) : (
               <button
                 type="button"
-                onClick={() => handleNavClick('Connection')}
+                onClick={() => handleNavClick('Koneksi & Layanan')}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border transition-all cursor-pointer shadow-2xs group ${
                   botData.status === 'connected'
                     ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100/70'
@@ -388,48 +372,37 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           </div>
         </div>
 
-        {/* Bagian Bawah: Profile Card / Quick Status (Dapat diklik untuk Ubah Kredensial Akun) */}
+        {/* Bagian Bawah: Info Akun & Tombol Keluar */}
         <div className="border-t border-slate-100 p-2.5 bg-slate-50/50">
           {collapsed ? (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedTab('Keamanan Akun');
-                  if (isMobileView && onCloseMobile) onCloseMobile();
-                }}
-                className={`relative p-1 rounded-xl transition cursor-pointer group ${
-                  selectedTab === 'Keamanan Akun' ? 'ring-2 ring-[#0084D1] bg-sky-50' : 'hover:bg-slate-200/60'
-                }`}
-                title="Klik untuk mengubah Username & Password Akun"
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className="relative p-0.5"
+                title={`${storeInfo.ownerName || username} · ${statusBadge.label}`}
               >
-                <div className="w-9 h-9 rounded-xl bg-sky-100 text-[#0084D1] font-bold flex items-center justify-center text-xs border border-sky-200 group-hover:border-[#0084D1] group-hover:scale-105 transition-all">
+                <div className="w-9 h-9 rounded-xl bg-sky-100 text-[#0084D1] font-bold flex items-center justify-center text-xs border border-sky-200">
                   {username.slice(0, 2).toUpperCase()}
                 </div>
                 <span
-                  className={`w-2.5 h-2.5 rounded-full border-2 border-white absolute bottom-0.5 right-0.5 ${statusBadge.bg}`}
+                  className={`w-2.5 h-2.5 rounded-full border-2 border-white absolute bottom-0 right-0 ${statusBadge.bg}`}
                 />
-              </button>
+              </div>
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="w-9 h-9 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 flex items-center justify-center transition cursor-pointer"
+                  title="Keluar"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              )}
             </div>
           ) : (
-            <div
-              className={`flex items-center justify-between p-1.5 rounded-xl transition ${
-                selectedTab === 'Keamanan Akun'
-                  ? 'bg-sky-50/80 border border-sky-200 shadow-2xs'
-                  : 'hover:bg-slate-100/80'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedTab('Keamanan Akun');
-                  if (isMobileView && onCloseMobile) onCloseMobile();
-                }}
-                className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer group"
-                title="Klik untuk mengubah Username & Password Akun"
-              >
+            <div className="flex items-center justify-between gap-2 p-1.5 rounded-xl">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <div className="relative shrink-0">
-                  <div className="w-8.5 h-8.5 rounded-xl bg-sky-100 text-[#0084D1] font-bold flex items-center justify-center text-xs border border-sky-200 group-hover:border-[#0084D1] group-hover:scale-105 transition-all">
+                  <div className="w-8.5 h-8.5 rounded-xl bg-sky-100 text-[#0084D1] font-bold flex items-center justify-center text-xs border border-sky-200">
                     {username.slice(0, 2).toUpperCase()}
                   </div>
                   <span
@@ -437,26 +410,20 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-bold text-slate-900 truncate group-hover:text-[#0084D1] transition-colors">
-                      {storeInfo.ownerName || username}
-                    </p>
-                    <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 group-hover:bg-sky-100 group-hover:text-sky-700 transition">
-                      Ubah Akun
-                    </span>
-                  </div>
+                  <p className="text-xs font-bold text-slate-900 truncate">
+                    {storeInfo.ownerName || username}
+                  </p>
                   <p className="text-[10px] text-slate-500 truncate">
-                    Admin Store · {statusBadge.label}
+                    @{username} · {statusBadge.label}
                   </p>
                 </div>
-              </button>
+              </div>
 
-              {/* Tombol Logout khusus Mobile Drawer */}
-              {isMobileView && onLogout && (
+              {onLogout && (
                 <button
                   type="button"
                   onClick={onLogout}
-                  className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition cursor-pointer shrink-0 ml-1"
+                  className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition cursor-pointer shrink-0"
                   title="Keluar"
                 >
                   <LogOut className="w-4 h-4" />

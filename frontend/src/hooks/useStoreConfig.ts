@@ -56,9 +56,28 @@ export function useStoreConfig(
   const [confirmPromoInvalidFooter, setConfirmPromoInvalidFooter] = useState<string>('{storeName} • Cek Kode Promo');
 
   // Command State
-  const [selectedCommand, setSelectedCommand] = useState<
-    'Menu' | 'List' | 'Carousel' | 'Invoice' | 'Confirmation' | 'Transaksi' | 'Notifikasi' | 'Kontak'
-  >('Menu');
+  const [selectedCommand, setSelectedCommandState] = useState<
+    'Menu' | 'List' | 'Carousel' | 'Invoice' | 'Confirmation' | 'Transaksi' | 'Notifikasi' | 'Kontak' | 'Grup'
+  >(() => {
+    try {
+      const saved = window.sessionStorage.getItem('wanzt_tenant_cmd_subtab');
+      if (
+        saved &&
+        ['Menu', 'List', 'Carousel', 'Invoice', 'Confirmation', 'Transaksi', 'Notifikasi', 'Kontak', 'Grup'].includes(saved)
+      ) {
+        return saved as any;
+      }
+    } catch {}
+    return 'Menu';
+  });
+  const setSelectedCommand = (
+    cmd: 'Menu' | 'List' | 'Carousel' | 'Invoice' | 'Confirmation' | 'Transaksi' | 'Notifikasi' | 'Kontak' | 'Grup'
+  ) => {
+    try {
+      window.sessionStorage.setItem('wanzt_tenant_cmd_subtab', cmd);
+    } catch {}
+    setSelectedCommandState(cmd);
+  };
   const [carouselOutputText, setCarouselOutputText] = useState<string>(
     `*{storeName}*\n\n*{produkName} | {category}*\n\nNikmati produk pilihanmu dengan harga terbaik di {storeName}.\n\n*Detail Produk:*\n- Varian: {varian}\n- Harga: {price}\n- Stok: {stock} tersedia\n\nProduk tersedia selama stok masih ada. Silakan pilih tindakan di bawah ini untuk melanjutkan.`
   );
@@ -140,6 +159,62 @@ export function useStoreConfig(
   );
   const [expiryWarningOwnerFooter, setExpiryWarningOwnerFooter] = useState<string>(
     'Sistem Notifikasi Otomatis Master Server'
+  );
+
+  // Moderasi Grup (Kick & AntiKudeta) State
+  const [kickAntiKudetaText, setKickAntiKudetaText] = useState<string>(
+    '[AntiKudeta] @{pelakuNumber} terdeteksi mencoba mengeluarkan {ownerName} (Owner)'
+  );
+  const [kickAntiKudetaFooter, setKickAntiKudetaFooter] = useState<string>(
+    '{storeName} • Proteksi AntiKudeta'
+  );
+  const [kickBotNotAdminText, setKickBotNotAdminText] = useState<string>(
+    '⚠️ *Bot Bukan Admin*\nBot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat mengeluarkan anggota.\n\nSilakan jadikan nomor bot sebagai admin grup terlebih dahulu.'
+  );
+  const [kickBotNotAdminFooter, setKickBotNotAdminFooter] = useState<string>(
+    '{storeName} • Moderasi Grup'
+  );
+  const [kickSuccessText, setKickSuccessText] = useState<string>(
+    '✅ @{targetNumber} berhasil dikeluarkan dari grup *{groupName}* oleh @{pelakuNumber}.'
+  );
+  const [kickSuccessFooter, setKickSuccessFooter] = useState<string>(
+    '{storeName} • Moderasi Grup'
+  );
+  const [openBotNotAdminText, setOpenBotNotAdminText] = useState<string>(
+    '⚠️ *Bot Bukan Admin*\nBot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat membuka pengaturan chat grup.\n\nSilakan jadikan nomor bot sebagai admin grup terlebih dahulu.'
+  );
+  const [openBotNotAdminFooter, setOpenBotNotAdminFooter] = useState<string>(
+    '{storeName} • Moderasi Grup'
+  );
+  const [openAlreadyText, setOpenAlreadyText] = useState<string>(
+    'ℹ️ Kondisi grup *{groupName}* saat ini sudah dalam keadaan terbuka (semua anggota dapat mengirim pesan).'
+  );
+  const [openAlreadyFooter, setOpenAlreadyFooter] = useState<string>(
+    '{storeName} • Moderasi Grup'
+  );
+  const [openSuccessText, setOpenSuccessText] = useState<string>(
+    '🔓 Grup *{groupName}* berhasil dibuka oleh @{pelakuNumber}. Sekarang semua anggota dapat mengirim pesan.'
+  );
+  const [openSuccessFooter, setOpenSuccessFooter] = useState<string>(
+    '{storeName} • Moderasi Grup'
+  );
+  const [closeBotNotAdminText, setCloseBotNotAdminText] = useState<string>(
+    '⚠️ *Bot Bukan Admin*\nBot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat menutup pengaturan chat grup.\n\nSilakan jadikan nomor bot sebagai admin grup terlebih dahulu.'
+  );
+  const [closeBotNotAdminFooter, setCloseBotNotAdminFooter] = useState<string>(
+    '{storeName} • Moderasi Grup'
+  );
+  const [closeAlreadyText, setCloseAlreadyText] = useState<string>(
+    'ℹ️ Kondisi grup *{groupName}* saat ini sudah dalam keadaan ditutup (hanya admin yang dapat mengirim pesan).'
+  );
+  const [closeAlreadyFooter, setCloseAlreadyFooter] = useState<string>(
+    '{storeName} • Moderasi Grup'
+  );
+  const [closeSuccessText, setCloseSuccessText] = useState<string>(
+    '🔒 Grup *{groupName}* berhasil ditutup oleh @{pelakuNumber}. Sekarang hanya admin yang dapat mengirim pesan.'
+  );
+  const [closeSuccessFooter, setCloseSuccessFooter] = useState<string>(
+    '{storeName} • Moderasi Grup'
   );
 
   // Per-response Photo & Interactive Buttons Config (list, carousel, invoice, confirm_*, transaksi, notifikasi, kontak)
@@ -277,6 +352,26 @@ export function useStoreConfig(
     if (config.expiryWarningOwnerText) setExpiryWarningOwnerText(config.expiryWarningOwnerText);
     if (config.expiryWarningOwnerFooter !== undefined) setExpiryWarningOwnerFooter(config.expiryWarningOwnerFooter);
 
+    // Moderasi Grup
+    if (config.kickAntiKudetaText) setKickAntiKudetaText(config.kickAntiKudetaText);
+    if (config.kickAntiKudetaFooter !== undefined) setKickAntiKudetaFooter(config.kickAntiKudetaFooter);
+    if (config.kickBotNotAdminText) setKickBotNotAdminText(config.kickBotNotAdminText);
+    if (config.kickBotNotAdminFooter !== undefined) setKickBotNotAdminFooter(config.kickBotNotAdminFooter);
+    if (config.kickSuccessText) setKickSuccessText(config.kickSuccessText);
+    if (config.kickSuccessFooter !== undefined) setKickSuccessFooter(config.kickSuccessFooter);
+    if (config.openBotNotAdminText) setOpenBotNotAdminText(config.openBotNotAdminText);
+    if (config.openBotNotAdminFooter !== undefined) setOpenBotNotAdminFooter(config.openBotNotAdminFooter);
+    if (config.openAlreadyText) setOpenAlreadyText(config.openAlreadyText);
+    if (config.openAlreadyFooter !== undefined) setOpenAlreadyFooter(config.openAlreadyFooter);
+    if (config.openSuccessText) setOpenSuccessText(config.openSuccessText);
+    if (config.openSuccessFooter !== undefined) setOpenSuccessFooter(config.openSuccessFooter);
+    if (config.closeBotNotAdminText) setCloseBotNotAdminText(config.closeBotNotAdminText);
+    if (config.closeBotNotAdminFooter !== undefined) setCloseBotNotAdminFooter(config.closeBotNotAdminFooter);
+    if (config.closeAlreadyText) setCloseAlreadyText(config.closeAlreadyText);
+    if (config.closeAlreadyFooter !== undefined) setCloseAlreadyFooter(config.closeAlreadyFooter);
+    if (config.closeSuccessText) setCloseSuccessText(config.closeSuccessText);
+    if (config.closeSuccessFooter !== undefined) setCloseSuccessFooter(config.closeSuccessFooter);
+
     // Per-response Extras (Photo ON/OFF, Selected Photo, Mandatory + Custom Buttons)
     const normalizedExtras: ResponseExtrasMap = createDefaultResponseExtras();
     const rawExtras = config.responseExtras && typeof config.responseExtras === 'object' ? config.responseExtras : {};
@@ -371,6 +466,25 @@ export function useStoreConfig(
         contactAdminEmptyFooter,
         expiryWarningOwnerText,
         expiryWarningOwnerFooter,
+        // Moderasi Grup
+        kickAntiKudetaText,
+        kickAntiKudetaFooter,
+        kickBotNotAdminText,
+        kickBotNotAdminFooter,
+        kickSuccessText,
+        kickSuccessFooter,
+        openBotNotAdminText,
+        openBotNotAdminFooter,
+        openAlreadyText,
+        openAlreadyFooter,
+        openSuccessText,
+        openSuccessFooter,
+        closeBotNotAdminText,
+        closeBotNotAdminFooter,
+        closeAlreadyText,
+        closeAlreadyFooter,
+        closeSuccessText,
+        closeSuccessFooter,
         responseExtras,
         xavieraApiKey: newApiKey !== undefined ? newApiKey : xavieraApiKey,
         xavieraBaseUrl: newBaseUrl !== undefined ? newBaseUrl : xavieraBaseUrl,
@@ -524,6 +638,43 @@ export function useStoreConfig(
     setExpiryWarningOwnerText,
     expiryWarningOwnerFooter,
     setExpiryWarningOwnerFooter,
+    // Moderasi Grup
+    kickAntiKudetaText,
+    setKickAntiKudetaText,
+    kickAntiKudetaFooter,
+    setKickAntiKudetaFooter,
+    kickBotNotAdminText,
+    setKickBotNotAdminText,
+    kickBotNotAdminFooter,
+    setKickBotNotAdminFooter,
+    kickSuccessText,
+    setKickSuccessText,
+    kickSuccessFooter,
+    setKickSuccessFooter,
+    openBotNotAdminText,
+    setOpenBotNotAdminText,
+    openBotNotAdminFooter,
+    setOpenBotNotAdminFooter,
+    openAlreadyText,
+    setOpenAlreadyText,
+    openAlreadyFooter,
+    setOpenAlreadyFooter,
+    openSuccessText,
+    setOpenSuccessText,
+    openSuccessFooter,
+    setOpenSuccessFooter,
+    closeBotNotAdminText,
+    setCloseBotNotAdminText,
+    closeBotNotAdminFooter,
+    setCloseBotNotAdminFooter,
+    closeAlreadyText,
+    setCloseAlreadyText,
+    closeAlreadyFooter,
+    setCloseAlreadyFooter,
+    closeSuccessText,
+    setCloseSuccessText,
+    closeSuccessFooter,
+    setCloseSuccessFooter,
     responseExtras,
     setResponseExtras,
     updateResponseExtra,

@@ -11,6 +11,7 @@ import {
   Clock,
   ArrowLeft,
   Info,
+  BookOpen,
 } from "lucide-react";
 import { MasterAdminProfile } from "../../utils/adminAuth.ts";
 
@@ -264,8 +265,20 @@ export function AdminLoginPage({
           </div>
         </div>
 
-        {/* Tautan kembali ke Web Toko */}
-        <div className="text-center">
+        {/* Tautan Dokumentasi & Web Toko */}
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-center">
+          <a
+            href={
+              typeof window !== "undefined" &&
+              window.location.pathname.startsWith("/admin/")
+                ? "/admin/docs"
+                : "/docs"
+            }
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0084D1] hover:text-[#0073B7] transition"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Dokumentasi JSON &amp; API</span>
+          </a>
           <a
             href="https://domainpenyewa.com"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-[#0084D1] transition"

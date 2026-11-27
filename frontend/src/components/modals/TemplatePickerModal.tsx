@@ -31,7 +31,16 @@ export type BotCommandCategory =
   | 'promo_cancelled'
   | 'contact_owner_empty'
   | 'contact_admin_empty'
-  | 'expiry_warning_owner';
+  | 'expiry_warning_owner'
+  | 'kick_anti_kudeta'
+  | 'kick_bot_not_admin'
+  | 'kick_success'
+  | 'open_bot_not_admin'
+  | 'open_already'
+  | 'open_success'
+  | 'close_bot_not_admin'
+  | 'close_already'
+  | 'close_success';
 
 export interface TemplatePackageResult {
   content: string;

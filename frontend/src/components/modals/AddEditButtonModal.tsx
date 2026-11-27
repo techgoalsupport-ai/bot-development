@@ -231,7 +231,7 @@ export const AddEditButtonModal: React.FC<AddEditButtonModalProps> = ({
                     {quickReplyAction === "list" &&
                       '⚡ Memilih "List" akan langsung memicu pesan Command List ketika tombol ditekan.'}
                     {quickReplyAction === "owner" &&
-                      '👑 Memilih "Owner" akan langsung mengirimkan kartu kontak (vCard) Owner dari tab Store Info.'}
+                      '👑 Memilih "Owner" akan langsung mengirimkan kartu kontak (vCard) Owner dari tab Pengaturan Toko.'}
                     {quickReplyAction === "admin" &&
                       '📞 Memilih "Admin" akan langsung mengirimkan kontak (vCard) Admin, atau info belum di-set jika kosong.'}
                     {quickReplyAction === "menu" &&

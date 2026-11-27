@@ -6,7 +6,8 @@ import makeWASocket, {
 } from '@itsliaaa/baileys';
 import NodeCache from '@cacheable/node-cache';
 import pino from 'pino';
-import { incrementMessageStat } from './database/tenantDbManager.ts';
+import { incrementMessageStat, getBotSetting, setBotSetting } from './database/tenantDbManager.ts';
+import { getMasterDb } from '../admin-backend/database/masterSqlite.ts';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -74,6 +75,7 @@ export class BotManager {
   public logs: LogEntry[] = [];
   public sock: any = null;
   public config: CommandsConfig = DEFAULT_CONFIG;
+  private manualStopRequested: boolean = false;
 
   constructor(tenantId: string = 't_wanzt') {
     this.tenantId = tenantId;
@@ -107,26 +109,72 @@ export class BotManager {
     return remoteJid;
   }
 
-  getStatus() {
+  private readSavedSessionInfo(): { hasSession: boolean; isRegistered: boolean; phone: string | null } {
     const credsPath = path.join(this.sessionDir, 'creds.json');
     const hasSession = fs.existsSync(credsPath);
-    let isRegistered = false;
-    if (hasSession) {
-      try {
-        const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
-        isRegistered = Boolean(creds.registered);
-      } catch {}
+    if (!hasSession) {
+      return { hasSession: false, isRegistered: false, phone: null };
     }
+    try {
+      const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
+      const isRegistered = Boolean(creds?.registered);
+      const rawId = String(creds?.me?.id || '');
+      const jidDigits = rawId.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+      const storedPhone = (getBotSetting(this.tenantId, 'bot_phone_number') || '').replace(/[^0-9]/g, '');
+      const phone =
+        jidDigits.length >= 9
+          ? jidDigits
+          : storedPhone.length >= 9
+          ? storedPhone
+          : null;
+      return { hasSession: true, isRegistered, phone };
+    } catch {
+      return { hasSession: true, isRegistered: false, phone: null };
+    }
+  }
+
+  inspectAutoReconnectEligibility(): { eligible: boolean; reason: string; phone: string | null } {
+    const isLive =
+      Boolean(this.sock) ||
+      this.status === 'connected' ||
+      this.status === 'connecting' ||
+      this.status === 'waiting_code' ||
+      this.status === 'code_ready';
+
+    if (isLive) {
+      return { eligible: false, reason: 'already_active', phone: this.phoneNumber || null };
+    }
+
+    const session = this.readSavedSessionInfo();
+    if (!session.hasSession || !session.isRegistered) {
+      return { eligible: false, reason: 'no_registered_session', phone: session.phone };
+    }
+
+    const autoReconnectFlag = getBotSetting(this.tenantId, 'bot_auto_reconnect');
+    if (autoReconnectFlag === '0') {
+      return { eligible: false, reason: 'manually_stopped', phone: session.phone };
+    }
+
+    return {
+      eligible: true,
+      reason: 'ready',
+      phone: session.phone,
+    };
+  }
+
+  getStatus() {
+    const session = this.readSavedSessionInfo();
     return {
       status: this.status,
-      phoneNumber: this.phoneNumber,
+      phoneNumber: this.phoneNumber || session.phone || '',
       pairingCode: this.pairingCode,
       customCode: this.customCode,
       user: this.user,
       logs: this.logs,
-      registered: isRegistered,
+      registered: session.isRegistered,
+      isRegistered: session.isRegistered,
       tenantId: this.tenantId,
-      hasSession,
+      hasSession: session.hasSession,
       config: this.config,
     };
   }
@@ -188,24 +236,41 @@ export class BotManager {
   }
 
   // --- Socket Lifecycle ---
-  async start(rawPhoneNumber: string, customCode: string = DEFAULT_CUSTOM_CODE, isReconnect: boolean = false) {
-    if (!rawPhoneNumber) {
-      throw new Error('Nomor WhatsApp target wajib diisi');
-    }
-    const cleanPhone = rawPhoneNumber.replace(/[^0-9]/g, '');
-    if (cleanPhone.length < 9) {
-      throw new Error('Nomor telepon tidak valid (minimal 9 digit)');
+  async start(rawPhoneNumber?: string, customCode: string = DEFAULT_CUSTOM_CODE, isReconnect: boolean = false) {
+    const savedSession = this.readSavedSessionInfo();
+    const resolvedRawPhone =
+      (rawPhoneNumber || '').trim() ||
+      savedSession.phone ||
+      getBotSetting(this.tenantId, 'bot_phone_number') ||
+      this.phoneNumber ||
+      '';
+
+    let cleanPhone = resolvedRawPhone.replace(/[^0-9]/g, '');
+    if (!isReconnect && !savedSession.isRegistered) {
+      if (!resolvedRawPhone) {
+        throw new Error('Nomor WhatsApp target wajib diisi');
+      }
+      if (cleanPhone.length < 9) {
+        throw new Error('Nomor telepon tidak valid (minimal 9 digit)');
+      }
+    } else if (cleanPhone.length < 9) {
+      if (!savedSession.isRegistered) {
+        throw new Error('Nomor telepon tidak valid (minimal 9 digit)');
+      }
+      cleanPhone = this.phoneNumber || '';
     }
 
     const codeToUse = (customCode || '').toUpperCase().trim();
-    if (!codeToUse) {
-      throw new Error('Form pairing code belum diisi! Harap isi kolom kode pairing untuk melakukan koneksi.');
-    }
-    if (/[^A-Z0-9]/.test(codeToUse)) {
-      throw new Error('Custom pairing code tidak sesuai: dilarang menggunakan simbol atau spasi (hanya angka dan huruf saja).');
-    }
-    if (codeToUse.length !== 8) {
-      throw new Error(`Custom pairing code tidak sesuai: wajib tepat 8 karakter (saat ini ${codeToUse.length} karakter).`);
+    if (!isReconnect && !savedSession.isRegistered) {
+      if (!codeToUse) {
+        throw new Error('Form pairing code belum diisi! Harap isi kolom kode pairing untuk melakukan koneksi.');
+      }
+      if (/[^A-Z0-9]/.test(codeToUse)) {
+        throw new Error('Custom pairing code tidak sesuai: dilarang menggunakan simbol atau spasi (hanya angka dan huruf saja).');
+      }
+      if (codeToUse.length !== 8) {
+        throw new Error(`Custom pairing code tidak sesuai: wajib tepat 8 karakter (saat ini ${codeToUse.length} karakter).`);
+      }
     }
 
     // Validasi mutlak: tolak koneksi bot jika akun tenant berstatus suspended atau expired secara real-time
@@ -229,8 +294,17 @@ export class BotManager {
       throw guardError;
     }
 
+    this.manualStopRequested = false;
     this.phoneNumber = cleanPhone;
-    this.customCode = codeToUse;
+    if (codeToUse && codeToUse.length === 8 && !/[^A-Z0-9]/.test(codeToUse)) {
+      this.customCode = codeToUse;
+      setBotSetting(this.tenantId, 'bot_custom_code', codeToUse);
+    }
+    if (cleanPhone.length >= 9) {
+      setBotSetting(this.tenantId, 'bot_phone_number', cleanPhone);
+    }
+    // Tandai bot diharapkan menyala otomatis saat server restart (kecuali dimatikan manual oleh tenant)
+    setBotSetting(this.tenantId, 'bot_auto_reconnect', '1');
     this.status = 'connecting';
 
     if (this.sock) {
@@ -258,7 +332,13 @@ export class BotManager {
       fs.mkdirSync(this.sessionDir, { recursive: true });
     }
 
-    this.addLog('info', `Memulai koneksi bot WhatsApp (@itsliaaa/baileys) untuk nomor ${cleanPhone} (Tenant: ${this.tenantId})...`);
+    const phoneLabel = cleanPhone || 'sesi tersimpan';
+    this.addLog(
+      'info',
+      isReconnect
+        ? `Memulihkan koneksi bot WhatsApp otomatis untuk ${phoneLabel} (Tenant: ${this.tenantId})...`
+        : `Memulai koneksi bot WhatsApp (@itsliaaa/baileys) untuk nomor ${phoneLabel} (Tenant: ${this.tenantId})...`
+    );
 
     try {
       const { state, saveCreds } = await useMultiFileAuthState(this.sessionDir);
@@ -350,8 +430,20 @@ export class BotManager {
           this.status = 'connected';
           this.user = this.sock.user;
           this.pairingCode = '';
+          const connectedPhone = String(this.user?.id || '').split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+          if (connectedPhone.length >= 9) {
+            this.phoneNumber = connectedPhone;
+            setBotSetting(this.tenantId, 'bot_phone_number', connectedPhone);
+          }
+          if (!this.manualStopRequested) {
+            setBotSetting(this.tenantId, 'bot_auto_reconnect', '1');
+          }
           this.addLog('success', `🎉 Bot BERHASIL TERHUBUNG ke WhatsApp! Akun: ${this.user?.name || this.phoneNumber}`);
         } else if (connection === 'close') {
+          if (this.manualStopRequested) {
+            this.status = 'idle';
+            return;
+          }
           const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
           const isRestartRequired = statusCode === DisconnectReason.restartRequired; // 515
           const isLoggedOut = statusCode === DisconnectReason.loggedOut;
@@ -359,6 +451,7 @@ export class BotManager {
           if (isRestartRequired) {
             this.addLog('info', 'Status restartRequired (515) terdeteksi pasca-pairing, menghubungkan kembali otomatis...');
             setTimeout(async () => {
+              if (this.manualStopRequested) return;
               await this.start(this.phoneNumber, this.customCode, true).catch((e) => {
                 this.addLog('error', `Gagal auto-reconnect: ${e?.message || e}`);
               });
@@ -368,6 +461,7 @@ export class BotManager {
 
           if (isLoggedOut) {
             this.status = 'closed';
+            setBotSetting(this.tenantId, 'bot_auto_reconnect', '0');
             this.addLog('error', 'Sesi telah dikeluarkan (logged out) oleh WhatsApp. Sesi otomatis dibersihkan.');
             if (fs.existsSync(this.sessionDir)) {
               fs.rmSync(this.sessionDir, { recursive: true, force: true });
@@ -407,6 +501,7 @@ export class BotManager {
         this.status = 'waiting_code';
         this.addLog('info', 'Menunggu soket siap mengirim permintaan pairing code...');
         setTimeout(async () => {
+          if (this.manualStopRequested || !this.sock) return;
           try {
             this.addLog('info', `Mengirim requestPairingCode("${cleanPhone}", "${codeToUse}")...`);
             const code = await this.sock.requestPairingCode(cleanPhone, codeToUse);
@@ -432,8 +527,16 @@ export class BotManager {
   }
 
   async stop() {
+    this.manualStopRequested = true;
+    setBotSetting(this.tenantId, 'bot_auto_reconnect', '0');
+
     if (this.sock) {
       try {
+        if (this.sock.ev) {
+          this.sock.ev.removeAllListeners('connection.update');
+          this.sock.ev.removeAllListeners('messages.upsert');
+          this.sock.ev.removeAllListeners('creds.update');
+        }
         await this.sock.end(undefined);
       } catch {}
       this.sock = null;
@@ -443,9 +546,39 @@ export class BotManager {
     this.addLog('info', 'Koneksi WhatsApp bot dimatikan oleh admin.');
   }
 
+  async reconnect() {
+    const savedSession = this.readSavedSessionInfo();
+    if (!savedSession.isRegistered) {
+      throw new Error('Sesi WhatsApp belum terdaftar. Silakan tautkan nomor terlebih dahulu.');
+    }
+
+    this.manualStopRequested = true;
+    if (this.sock) {
+      try {
+        if (this.sock.ev) {
+          this.sock.ev.removeAllListeners('connection.update');
+          this.sock.ev.removeAllListeners('messages.upsert');
+          this.sock.ev.removeAllListeners('creds.update');
+        }
+        await this.sock.end(undefined);
+      } catch {}
+      this.sock = null;
+    }
+
+    this.status = 'idle';
+    this.pairingCode = '';
+    this.addLog('info', 'Memutuskan koneksi sementara untuk menghubungkan ulang bot WhatsApp...');
+    return this.start(undefined, undefined, true);
+  }
+
   async forceDisconnect(options?: { clearSession?: boolean; reason?: 'suspended' | 'expired' }) {
     const clearSession = options?.clearSession ?? true;
     const reason = options?.reason ?? 'suspended';
+    this.manualStopRequested = true;
+
+    if (clearSession) {
+      setBotSetting(this.tenantId, 'bot_auto_reconnect', '0');
+    }
 
     if (this.sock) {
       try {
@@ -488,6 +621,8 @@ export class BotManager {
 
   async reset() {
     await this.stop();
+    setBotSetting(this.tenantId, 'bot_auto_reconnect', '0');
+    setBotSetting(this.tenantId, 'bot_phone_number', '');
     if (fs.existsSync(this.sessionDir)) {
       fs.rmSync(this.sessionDir, { recursive: true, force: true });
     }
@@ -591,3 +726,99 @@ export const botManager: BotManager = new Proxy({} as BotManager, {
     return true;
   },
 });
+
+export interface AutoReconnectSummary {
+  attempted: number;
+  reconnected: string[];
+  skipped: Array<{ tenantId: string; reason: string }>;
+}
+
+let autoReconnectStartupPromise: Promise<AutoReconnectSummary> | null = null;
+
+/**
+ * Memeriksa seluruh tenant saat server menyala kembali dan menghubungkan ulang bot WhatsApp
+ * secara otomatis bagi tenant aktif yang memiliki sesi terdaftar dan TIDAK sengaja dimatikan.
+ */
+export async function autoReconnectSavedBots(options?: {
+  delayBetweenTenantsMs?: number;
+  startBot?: (bot: BotManager, phone: string, customCode: string) => Promise<any>;
+  forceRun?: boolean;
+}): Promise<AutoReconnectSummary> {
+  if (autoReconnectStartupPromise && !options?.forceRun) {
+    return autoReconnectStartupPromise;
+  }
+
+  const run = async (): Promise<AutoReconnectSummary> => {
+    const summary: AutoReconnectSummary = {
+      attempted: 0,
+      reconnected: [],
+      skipped: [],
+    };
+    const delayMs = Math.max(0, options?.delayBetweenTenantsMs ?? 1500);
+
+    let tenantRows: Array<{ tenant_id: string; status: string; expires_at: string }> = [];
+    try {
+      const masterDb = getMasterDb();
+      tenantRows = masterDb
+        .prepare('SELECT tenant_id, status, expires_at FROM tenants ORDER BY id ASC')
+        .all() as Array<{ tenant_id: string; status: string; expires_at: string }>;
+    } catch (err) {
+      console.error('[Auto-Reconnect] Gagal membaca daftar tenant dari master.db:', err);
+      return summary;
+    }
+
+    const { TenantStatusService } = await import('../admin-backend/services/tenantStatusService.ts');
+
+    for (const row of tenantRows) {
+      const tenantId = row.tenant_id;
+      const bot = getBotManager(tenantId);
+      const eligibility = bot.inspectAutoReconnectEligibility();
+
+      if (!eligibility.eligible) {
+        summary.skipped.push({ tenantId, reason: eligibility.reason });
+        continue;
+      }
+
+      const effectiveStatus = await TenantStatusService.enforceRealtimeTenantExpiry(tenantId);
+      if (effectiveStatus !== 'active') {
+        summary.skipped.push({ tenantId, reason: `tenant_${effectiveStatus}` });
+        continue;
+      }
+
+      summary.attempted++;
+      const savedCode = (getBotSetting(tenantId, 'bot_custom_code') || '').trim();
+      const phoneToUse = eligibility.phone || '';
+
+      try {
+        if (options?.startBot) {
+          await options.startBot(bot, phoneToUse, savedCode);
+        } else {
+          await runWithTenant(tenantId, () => bot.start(phoneToUse, savedCode, true));
+        }
+        summary.reconnected.push(tenantId);
+        console.log(
+          `[Auto-Reconnect] Bot tenant "${tenantId}" (${phoneToUse || 'sesi tersimpan'}) berhasil dihubungkan kembali.`
+        );
+      } catch (err: any) {
+        summary.skipped.push({ tenantId, reason: `start_failed: ${err?.message || err}` });
+        console.error(`[Auto-Reconnect] Gagal menghubungkan ulang bot tenant "${tenantId}":`, err?.message || err);
+      }
+
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+
+    if (summary.reconnected.length > 0) {
+      console.log(`[Auto-Reconnect] Selesai: ${summary.reconnected.length} bot tenant terhubung otomatis.`);
+    }
+    return summary;
+  };
+
+  if (options?.forceRun) {
+    return run();
+  }
+
+  autoReconnectStartupPromise = run();
+  return autoReconnectStartupPromise;
+}

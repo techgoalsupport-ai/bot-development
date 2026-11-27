@@ -60,6 +60,10 @@ import {
 import QRCode from "qrcode";
 import { handleHideTagCommand } from "./hideTagHandler.ts";
 import { extractTextFromWaMessage, isHideTagCommand } from "./hideTagUtils.ts";
+import { parseKickCommand } from "./kickUtils.ts";
+import { handleKickCommand } from "./kickHandler.ts";
+import { parseGroupSettingCommand } from "./groupSettingUtils.ts";
+import { handleGroupSettingCommand } from "./groupSettingHandler.ts";
 import {
   CHECKOUT_SESSION_TIMEOUT_MS,
   shouldAllowIncomingInDispatcher,
@@ -103,6 +107,7 @@ export interface CheckoutSession {
   costPrice: number;
   initialMargin: number;
   variantId?: string;
+  category?: string;
   createdAt: number;
   expiresAt: number; // 3 menit
   waitingForPromo: boolean;
@@ -121,7 +126,9 @@ export interface ExecuteInvoiceParams {
   isGroup: boolean;
   productName: string;
   variantName: string;
+  category?: string;
   price: number;
+  costPrice?: number;
   finalPrice?: number;
   promoCode?: string;
   discountAmount?: number;
@@ -144,7 +151,9 @@ export async function executeLunasQrisInvoice(
     isGroup,
     productName,
     variantName,
+    category: xavieraCategory,
     price,
+    costPrice,
     finalPrice,
     promoCode,
     discountAmount,
@@ -317,9 +326,13 @@ export async function executeLunasQrisInvoice(
       customerName: senderName,
       productName,
       variantName,
+      category: (xavieraCategory || "").trim(),
       nominal: trxData.amount,
       uniqueCode: trxData.unique_code,
       total: trxData.total_amount,
+      sellingPrice: price,
+      costPrice: costPrice || 0,
+      discountAmount: discountAmount || 0,
       paymentUrl: trxData.payment_url,
       promoId: promoReserved && promoId ? promoId : null,
       status: "pending",
@@ -918,6 +931,7 @@ export async function dispatchIncomingMessages(
         costPrice,
         initialMargin,
         variantId,
+        category: resolvedOrder.category,
         createdAt: Date.now(),
         expiresAt: Date.now() + CHECKOUT_SESSION_TIMEOUT_MS,
         waitingForPromo: false,
@@ -1202,7 +1216,9 @@ export async function dispatchIncomingMessages(
         isGroup: Boolean(session.groupJid),
         productName: session.productName,
         variantName: session.variantName,
+        category: session.category,
         price: session.price,
+        costPrice: session.costPrice,
         quotedMessage: m,
         deps,
       });
@@ -1675,7 +1691,9 @@ export async function dispatchIncomingMessages(
             isGroup: Boolean(activeSession.groupJid),
             productName: activeSession.productName,
             variantName: activeSession.variantName,
+            category: activeSession.category,
             price: activeSession.price,
+            costPrice: activeSession.costPrice,
             quotedMessage: m,
             deps,
           });
@@ -1872,7 +1890,9 @@ export async function dispatchIncomingMessages(
           isGroup: Boolean(activeSession.groupJid),
           productName: activeSession.productName,
           variantName: activeSession.variantName,
+          category: activeSession.category,
           price: activeSession.price,
+          costPrice: activeSession.costPrice,
           finalPrice,
           promoCode: promoCodeUsed,
           discountAmount: appliedDiscount,
@@ -1959,7 +1979,9 @@ export async function dispatchIncomingMessages(
           isGroup: Boolean(activeSession.groupJid),
           productName: activeSession.productName,
           variantName: activeSession.variantName,
+          category: activeSession.category,
           price: activeSession.price,
+          costPrice: activeSession.costPrice,
           quotedMessage: m,
           deps,
         });
@@ -1967,7 +1989,35 @@ export async function dispatchIncomingMessages(
       }
     }
 
-    // 4.B TANGANI COMMAND DENGAN PREFIX (WAJIB PREFIX: / . ! ? # $ % &)
+    // 4.B TANGANI COMMAND GRUP TANPA PREFIX ATAU DENGAN PREFIX (Kick / Open / Close)
+    if (isGroup && trimmedText) {
+      const kickMatch = parseKickCommand(trimmedText);
+      if (kickMatch.isMatch) {
+        await handleKickCommand({
+          sock,
+          message: m,
+          remoteJid,
+          config,
+          deps,
+        });
+        continue;
+      }
+
+      const groupSettingMatch = parseGroupSettingCommand(trimmedText);
+      if (groupSettingMatch.isMatch && groupSettingMatch.action) {
+        await handleGroupSettingCommand({
+          sock,
+          message: m,
+          remoteJid,
+          action: groupSettingMatch.action,
+          config,
+          deps,
+        });
+        continue;
+      }
+    }
+
+    // 4.C TANGANI COMMAND DENGAN PREFIX (WAJIB PREFIX: / . ! ? # $ % &)
     // Pastikan saat Grup Only = ON, chat DM yang sedang punya sesi checkout aktif pun tidak bocor ke command/carousel biasa
     if (isGroupOnlyMode && !isGroup) {
       continue;

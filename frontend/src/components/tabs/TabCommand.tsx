@@ -22,7 +22,9 @@ import {
   CollapsibleVariableChips,
   ResponsePhotoToggle,
   ResponseButtonsSection,
-  ResponseAccordionCard,
+  ResponseSubTabPillBar,
+  ResponseEditorPanel,
+  ResponseSubTabItem,
 } from './ResponseSectionWidgets';
 import {
   getDefaultButtonsForResponse,
@@ -38,7 +40,8 @@ interface TabCommandProps {
     | 'Confirmation'
     | 'Transaksi'
     | 'Notifikasi'
-    | 'Kontak';
+    | 'Kontak'
+    | 'Grup';
   setSelectedCommand: (
     cmd:
       | 'Menu'
@@ -49,6 +52,7 @@ interface TabCommandProps {
       | 'Transaksi'
       | 'Notifikasi'
       | 'Kontak'
+      | 'Grup'
   ) => void;
   // Menu Props
   menuOutputText: string;
@@ -155,6 +159,44 @@ interface TabCommandProps {
   expiryWarningOwnerFooter: string;
   setExpiryWarningOwnerFooter: React.Dispatch<React.SetStateAction<string>>;
   onSaveKontak: () => void;
+  // Grup (Moderasi & AntiKudeta) Props
+  kickAntiKudetaText: string;
+  setKickAntiKudetaText: (txt: string) => void;
+  kickAntiKudetaFooter: string;
+  setKickAntiKudetaFooter: React.Dispatch<React.SetStateAction<string>>;
+  kickBotNotAdminText: string;
+  setKickBotNotAdminText: (txt: string) => void;
+  kickBotNotAdminFooter: string;
+  setKickBotNotAdminFooter: React.Dispatch<React.SetStateAction<string>>;
+  kickSuccessText: string;
+  setKickSuccessText: (txt: string) => void;
+  kickSuccessFooter: string;
+  setKickSuccessFooter: React.Dispatch<React.SetStateAction<string>>;
+  openBotNotAdminText: string;
+  setOpenBotNotAdminText: (txt: string) => void;
+  openBotNotAdminFooter: string;
+  setOpenBotNotAdminFooter: React.Dispatch<React.SetStateAction<string>>;
+  openAlreadyText: string;
+  setOpenAlreadyText: (txt: string) => void;
+  openAlreadyFooter: string;
+  setOpenAlreadyFooter: React.Dispatch<React.SetStateAction<string>>;
+  openSuccessText: string;
+  setOpenSuccessText: (txt: string) => void;
+  openSuccessFooter: string;
+  setOpenSuccessFooter: React.Dispatch<React.SetStateAction<string>>;
+  closeBotNotAdminText: string;
+  setCloseBotNotAdminText: (txt: string) => void;
+  closeBotNotAdminFooter: string;
+  setCloseBotNotAdminFooter: React.Dispatch<React.SetStateAction<string>>;
+  closeAlreadyText: string;
+  setCloseAlreadyText: (txt: string) => void;
+  closeAlreadyFooter: string;
+  setCloseAlreadyFooter: React.Dispatch<React.SetStateAction<string>>;
+  closeSuccessText: string;
+  setCloseSuccessText: (txt: string) => void;
+  closeSuccessFooter: string;
+  setCloseSuccessFooter: React.Dispatch<React.SetStateAction<string>>;
+  onSaveGrup: () => void;
   // Per-response Photo & Button Map
   responseExtras: ResponseExtrasMap;
   onUpdateResponseExtra: (key: ResponseConfigKey, patch: Partial<ResponseExtraConfig>) => void;
@@ -173,7 +215,8 @@ const COMMAND_TABS: Array<{
     | 'Confirmation'
     | 'Transaksi'
     | 'Notifikasi'
-    | 'Kontak';
+    | 'Kontak'
+    | 'Grup';
   label: string;
   desc: string;
 }> = [
@@ -185,6 +228,7 @@ const COMMAND_TABS: Array<{
   { id: 'Transaksi', label: 'Transaksi', desc: 'Lunas, expired & error QRIS' },
   { id: 'Notifikasi', label: 'Notifikasi', desc: 'Alur order grup, stok & sesi' },
   { id: 'Kontak', label: 'Kontak', desc: 'Kontak owner, admin & sewa bot' },
+  { id: 'Grup', label: 'Grup', desc: 'Moderasi & keamanan grup' },
 ];
 
 export const TabCommand: React.FC<TabCommandProps> = ({
@@ -290,6 +334,44 @@ export const TabCommand: React.FC<TabCommandProps> = ({
   expiryWarningOwnerFooter,
   setExpiryWarningOwnerFooter,
   onSaveKontak,
+  // Grup
+  kickAntiKudetaText,
+  setKickAntiKudetaText,
+  kickAntiKudetaFooter,
+  setKickAntiKudetaFooter,
+  kickBotNotAdminText,
+  setKickBotNotAdminText,
+  kickBotNotAdminFooter,
+  setKickBotNotAdminFooter,
+  kickSuccessText,
+  setKickSuccessText,
+  kickSuccessFooter,
+  setKickSuccessFooter,
+  openBotNotAdminText,
+  setOpenBotNotAdminText,
+  openBotNotAdminFooter,
+  setOpenBotNotAdminFooter,
+  openAlreadyText,
+  setOpenAlreadyText,
+  openAlreadyFooter,
+  setOpenAlreadyFooter,
+  openSuccessText,
+  setOpenSuccessText,
+  openSuccessFooter,
+  setOpenSuccessFooter,
+  closeBotNotAdminText,
+  setCloseBotNotAdminText,
+  closeBotNotAdminFooter,
+  setCloseBotNotAdminFooter,
+  closeAlreadyText,
+  setCloseAlreadyText,
+  closeAlreadyFooter,
+  setCloseAlreadyFooter,
+  closeSuccessText,
+  setCloseSuccessText,
+  closeSuccessFooter,
+  setCloseSuccessFooter,
+  onSaveGrup,
   responseExtras,
   onUpdateResponseExtra,
   isSavingConfig,
@@ -328,19 +410,166 @@ export const TabCommand: React.FC<TabCommandProps> = ({
     };
   };
 
-  // Option A: State Accordion Card terbuka per tab multi-respon (kartu pertama terbuka default)
-  const [expandedConfirm, setExpandedConfirm] = React.useState<ResponseConfigKey | null>('confirm_summary');
-  const [expandedTransaksi, setExpandedTransaksi] = React.useState<ResponseConfigKey | null>('payment_success_dm');
-  const [expandedNotif, setExpandedNotif] = React.useState<ResponseConfigKey | null>('order_group_notif');
-  const [expandedKontak, setExpandedKontak] = React.useState<ResponseConfigKey | null>('contact_owner_empty');
-
-  const toggleAccordion = (
-    current: ResponseConfigKey | null,
-    setter: React.Dispatch<React.SetStateAction<ResponseConfigKey | null>>,
-    target: ResponseConfigKey
-  ) => {
-    setter(current === target ? null : target);
+  const readSavedSubPill = <T extends ResponseConfigKey>(
+    storageKey: string,
+    allowed: readonly T[],
+    fallback: T
+  ): T => {
+    try {
+      const saved = window.sessionStorage.getItem(storageKey);
+      if (saved && (allowed as readonly string[]).includes(saved)) {
+        return saved as T;
+      }
+    } catch {}
+    return fallback;
   };
+
+  // Option B: Active Sub-Tab Pill per kategori multi-respon (tersimpan di sessionStorage agar bertahan saat refresh)
+  type ConfirmSubKey =
+    | 'confirm_summary'
+    | 'confirm_promo_input'
+    | 'confirm_promo_valid'
+    | 'confirm_promo_invalid';
+  type TransaksiSubKey =
+    | 'payment_success_dm'
+    | 'payment_success_group'
+    | 'payment_expired'
+    | 'payment_error';
+  type NotifSubKey =
+    | 'order_group_notif'
+    | 'stock_empty'
+    | 'checkout_session_expired'
+    | 'promo_cancelled';
+  type KontakSubKey =
+    | 'contact_owner_empty'
+    | 'contact_admin_empty'
+    | 'expiry_warning_owner';
+  type GrupSubKey =
+    | 'kick_anti_kudeta'
+    | 'kick_bot_not_admin'
+    | 'kick_success'
+    | 'open_bot_not_admin'
+    | 'open_already'
+    | 'open_success'
+    | 'close_bot_not_admin'
+    | 'close_already'
+    | 'close_success';
+
+  const [activeConfirmPill, setActiveConfirmPillState] = React.useState<ConfirmSubKey>(() =>
+    readSavedSubPill(
+      'wanzt_tenant_cmd_subpill_confirm',
+      ['confirm_summary', 'confirm_promo_input', 'confirm_promo_valid', 'confirm_promo_invalid'] as const,
+      'confirm_summary'
+    )
+  );
+  const [activeTransaksiPill, setActiveTransaksiPillState] = React.useState<TransaksiSubKey>(() =>
+    readSavedSubPill(
+      'wanzt_tenant_cmd_subpill_transaksi',
+      ['payment_success_dm', 'payment_success_group', 'payment_expired', 'payment_error'] as const,
+      'payment_success_dm'
+    )
+  );
+  const [activeNotifPill, setActiveNotifPillState] = React.useState<NotifSubKey>(() =>
+    readSavedSubPill(
+      'wanzt_tenant_cmd_subpill_notif',
+      ['order_group_notif', 'stock_empty', 'checkout_session_expired', 'promo_cancelled'] as const,
+      'order_group_notif'
+    )
+  );
+  const [activeKontakPill, setActiveKontakPillState] = React.useState<KontakSubKey>(() =>
+    readSavedSubPill(
+      'wanzt_tenant_cmd_subpill_kontak',
+      ['contact_owner_empty', 'contact_admin_empty', 'expiry_warning_owner'] as const,
+      'contact_owner_empty'
+    )
+  );
+  const [activeGrupPill, setActiveGrupPillState] = React.useState<GrupSubKey>(() =>
+    readSavedSubPill(
+      'wanzt_tenant_cmd_subpill_grup',
+      [
+        'kick_anti_kudeta',
+        'kick_bot_not_admin',
+        'kick_success',
+        'open_bot_not_admin',
+        'open_already',
+        'open_success',
+        'close_bot_not_admin',
+        'close_already',
+        'close_success',
+      ] as const,
+      'kick_anti_kudeta'
+    )
+  );
+
+  const setActiveConfirmPill = (next: ConfirmSubKey) => {
+    try {
+      window.sessionStorage.setItem('wanzt_tenant_cmd_subpill_confirm', next);
+    } catch {}
+    setActiveConfirmPillState(next);
+  };
+  const setActiveTransaksiPill = (next: TransaksiSubKey) => {
+    try {
+      window.sessionStorage.setItem('wanzt_tenant_cmd_subpill_transaksi', next);
+    } catch {}
+    setActiveTransaksiPillState(next);
+  };
+  const setActiveNotifPill = (next: NotifSubKey) => {
+    try {
+      window.sessionStorage.setItem('wanzt_tenant_cmd_subpill_notif', next);
+    } catch {}
+    setActiveNotifPillState(next);
+  };
+  const setActiveKontakPill = (next: KontakSubKey) => {
+    try {
+      window.sessionStorage.setItem('wanzt_tenant_cmd_subpill_kontak', next);
+    } catch {}
+    setActiveKontakPillState(next);
+  };
+  const setActiveGrupPill = (next: GrupSubKey) => {
+    try {
+      window.sessionStorage.setItem('wanzt_tenant_cmd_subpill_grup', next);
+    } catch {}
+    setActiveGrupPillState(next);
+  };
+
+  const confirmSubTabs: Array<ResponseSubTabItem<ConfirmSubKey>> = [
+    { key: 'confirm_summary', indexNumber: 1, pillLabel: 'Ringkasan Pesanan' },
+    { key: 'confirm_promo_input', indexNumber: 2, pillLabel: 'Input Kode Promo' },
+    { key: 'confirm_promo_valid', indexNumber: 3, pillLabel: 'Promo Valid' },
+    { key: 'confirm_promo_invalid', indexNumber: 4, pillLabel: 'Promo Tidak Valid' },
+  ];
+
+  const transaksiSubTabs: Array<ResponseSubTabItem<TransaksiSubKey>> = [
+    { key: 'payment_success_dm', indexNumber: 1, pillLabel: 'Lunas (DM)' },
+    { key: 'payment_success_group', indexNumber: 2, pillLabel: 'Lunas (Grup)' },
+    { key: 'payment_expired', indexNumber: 3, pillLabel: 'QRIS Kedaluwarsa' },
+    { key: 'payment_error', indexNumber: 4, pillLabel: 'Kendala QRIS' },
+  ];
+
+  const notifSubTabs: Array<ResponseSubTabItem<NotifSubKey>> = [
+    { key: 'order_group_notif', indexNumber: 1, pillLabel: 'Order Grup ke DM' },
+    { key: 'stock_empty', indexNumber: 2, pillLabel: 'Stok Kosong' },
+    { key: 'checkout_session_expired', indexNumber: 3, pillLabel: 'Sesi Habis' },
+    { key: 'promo_cancelled', indexNumber: 4, pillLabel: 'Batal Kupon' },
+  ];
+
+  const kontakSubTabs: Array<ResponseSubTabItem<KontakSubKey>> = [
+    { key: 'contact_owner_empty', indexNumber: 1, pillLabel: 'Owner Kosong' },
+    { key: 'contact_admin_empty', indexNumber: 2, pillLabel: 'CS / Admin Kosong' },
+    { key: 'expiry_warning_owner', indexNumber: 3, pillLabel: 'Peringatan Sewa' },
+  ];
+
+  const grupSubTabs: Array<ResponseSubTabItem<GrupSubKey>> = [
+    { key: 'kick_anti_kudeta', indexNumber: 1, pillLabel: 'Kudeta Grup' },
+    { key: 'kick_bot_not_admin', indexNumber: 2, pillLabel: 'Kick: Bot Bukan Admin' },
+    { key: 'kick_success', indexNumber: 3, pillLabel: 'Berhasil Kick' },
+    { key: 'open_bot_not_admin', indexNumber: 4, pillLabel: 'Open: Bot Bukan Admin' },
+    { key: 'open_already', indexNumber: 5, pillLabel: 'Grup Sudah Terbuka' },
+    { key: 'open_success', indexNumber: 6, pillLabel: 'Berhasil Buka Grup' },
+    { key: 'close_bot_not_admin', indexNumber: 7, pillLabel: 'Close: Bot Bukan Admin' },
+    { key: 'close_already', indexNumber: 8, pillLabel: 'Grup Sudah Ditutup' },
+    { key: 'close_success', indexNumber: 9, pillLabel: 'Berhasil Tutup Grup' },
+  ];
 
   // State Template Picker Modal (Paket Pesan + Footer + Tombol)
   const [pickerState, setPickerState] = React.useState<{
@@ -839,23 +1068,29 @@ export const TabCommand: React.FC<TabCommandProps> = ({
         </div>
       )}
 
-      {/* COMMAND: CONFIRMATION (Option A: Collapsible Accordion Cards) */}
+      {/* COMMAND: CONFIRMATION (Option B: Sub-Tab Pill di Dalam Halaman) */}
       {selectedCommand === 'Confirmation' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">Konfirmasi Checkout &amp; Promo</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Klik salah satu respon di bawah untuk mengatur foto, pesan, footer, dan tombol interaktif.
-            </p>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-5">
+          <div className="space-y-3.5">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Konfirmasi Checkout &amp; Promo</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Pilih sub-tab di bawah untuk mengatur foto, pesan, footer, dan tombol interaktif tiap tahap checkout.
+              </p>
+            </div>
+
+            <ResponseSubTabPillBar
+              items={confirmSubTabs}
+              activeKey={activeConfirmPill}
+              onSelect={setActiveConfirmPill}
+              ariaLabel="Sub-tab Respon Konfirmasi Checkout"
+            />
           </div>
 
-          <div className="space-y-3">
-            <ResponseAccordionCard
-              indexNumber={1}
+          {activeConfirmPill === 'confirm_summary' && (
+            <ResponseEditorPanel
               title="Ringkasan Pesanan (Order Summary)"
               description="Dikirim saat pembeli klik Order sebelum pembayaran QRIS."
-              isExpanded={expandedConfirm === 'confirm_summary'}
-              onToggleExpand={() => toggleAccordion(expandedConfirm, setExpandedConfirm, 'confirm_summary')}
               responseKey="confirm_summary"
               extraConfig={getExtra('confirm_summary')}
               availablePictures={availablePictures}
@@ -886,13 +1121,12 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
+          )}
 
-            <ResponseAccordionCard
-              indexNumber={2}
+          {activeConfirmPill === 'confirm_promo_input' && (
+            <ResponseEditorPanel
               title="Permintaan Input Kode Promo"
               description="Instruksi saat tombol Pakai Kode Promo ditekan."
-              isExpanded={expandedConfirm === 'confirm_promo_input'}
-              onToggleExpand={() => toggleAccordion(expandedConfirm, setExpandedConfirm, 'confirm_promo_input')}
               responseKey="confirm_promo_input"
               extraConfig={getExtra('confirm_promo_input')}
               availablePictures={availablePictures}
@@ -923,13 +1157,12 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
+          )}
 
-            <ResponseAccordionCard
-              indexNumber={3}
+          {activeConfirmPill === 'confirm_promo_valid' && (
+            <ResponseEditorPanel
               title="Pesan Kode Promo Valid"
               description="Konfirmasi potongan diskon sebelum invoice QRIS."
-              isExpanded={expandedConfirm === 'confirm_promo_valid'}
-              onToggleExpand={() => toggleAccordion(expandedConfirm, setExpandedConfirm, 'confirm_promo_valid')}
               responseKey="confirm_promo_valid"
               extraConfig={getExtra('confirm_promo_valid')}
               availablePictures={availablePictures}
@@ -968,13 +1201,12 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
+          )}
 
-            <ResponseAccordionCard
-              indexNumber={4}
+          {activeConfirmPill === 'confirm_promo_invalid' && (
+            <ResponseEditorPanel
               title="Pesan Kode Promo Tidak Valid"
               description="Balasan saat kupon habis, kadaluwarsa, atau salah."
-              isExpanded={expandedConfirm === 'confirm_promo_invalid'}
-              onToggleExpand={() => toggleAccordion(expandedConfirm, setExpandedConfirm, 'confirm_promo_invalid')}
               responseKey="confirm_promo_invalid"
               extraConfig={getExtra('confirm_promo_invalid')}
               availablePictures={availablePictures}
@@ -1012,7 +1244,7 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
-          </div>
+          )}
 
           {/* Save Confirmation Bar */}
           <div className="pt-3 border-t border-slate-100 flex justify-end">
@@ -1029,23 +1261,29 @@ export const TabCommand: React.FC<TabCommandProps> = ({
         </div>
       )}
 
-      {/* COMMAND: TRANSAKSI (Option A: Collapsible Accordion Cards) */}
+      {/* COMMAND: TRANSAKSI (Option B: Sub-Tab Pill di Dalam Halaman) */}
       {selectedCommand === 'Transaksi' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">Respon Transaksi QRIS</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Klik salah satu respon transaksi untuk mengatur foto, pesan, footer, dan tombol interaktif.
-            </p>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-5">
+          <div className="space-y-3.5">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Respon Transaksi QRIS</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Pilih sub-tab di bawah untuk mengatur foto, pesan, footer, dan tombol interaktif untuk status pembayaran.
+              </p>
+            </div>
+
+            <ResponseSubTabPillBar
+              items={transaksiSubTabs}
+              activeKey={activeTransaksiPill}
+              onSelect={setActiveTransaksiPill}
+              ariaLabel="Sub-tab Respon Transaksi QRIS"
+            />
           </div>
 
-          <div className="space-y-3">
-            <ResponseAccordionCard
-              indexNumber={1}
+          {activeTransaksiPill === 'payment_success_dm' && (
+            <ResponseEditorPanel
               title="Pembayaran Lunas (DM Pembeli)"
               description="Dikirim ke DM pembeli saat transfer QRIS terverifikasi lunas."
-              isExpanded={expandedTransaksi === 'payment_success_dm'}
-              onToggleExpand={() => toggleAccordion(expandedTransaksi, setExpandedTransaksi, 'payment_success_dm')}
               responseKey="payment_success_dm"
               extraConfig={getExtra('payment_success_dm')}
               availablePictures={availablePictures}
@@ -1074,13 +1312,12 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
+          )}
 
-            <ResponseAccordionCard
-              indexNumber={2}
+          {activeTransaksiPill === 'payment_success_group' && (
+            <ResponseEditorPanel
               title="Notifikasi Lunas di Grup"
               description="Pengumuman transaksi sukses di grup tanpa data akun."
-              isExpanded={expandedTransaksi === 'payment_success_group'}
-              onToggleExpand={() => toggleAccordion(expandedTransaksi, setExpandedTransaksi, 'payment_success_group')}
               responseKey="payment_success_group"
               extraConfig={getExtra('payment_success_group')}
               availablePictures={availablePictures}
@@ -1109,13 +1346,12 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
+          )}
 
-            <ResponseAccordionCard
-              indexNumber={3}
+          {activeTransaksiPill === 'payment_expired' && (
+            <ResponseEditorPanel
               title="Tagihan QRIS Kedaluwarsa"
               description="Dikirim saat batas waktu pembayaran berakhir."
-              isExpanded={expandedTransaksi === 'payment_expired'}
-              onToggleExpand={() => toggleAccordion(expandedTransaksi, setExpandedTransaksi, 'payment_expired')}
               responseKey="payment_expired"
               extraConfig={getExtra('payment_expired')}
               availablePictures={availablePictures}
@@ -1144,13 +1380,12 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
+          )}
 
-            <ResponseAccordionCard
-              indexNumber={4}
+          {activeTransaksiPill === 'payment_error' && (
+            <ResponseEditorPanel
               title="Kendala Gateway QRIS"
               description="Pesan bila terjadi gangguan saat menerbitkan QRIS."
-              isExpanded={expandedTransaksi === 'payment_error'}
-              onToggleExpand={() => toggleAccordion(expandedTransaksi, setExpandedTransaksi, 'payment_error')}
               responseKey="payment_error"
               extraConfig={getExtra('payment_error')}
               availablePictures={availablePictures}
@@ -1179,7 +1414,7 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
-          </div>
+          )}
 
           {/* Save Button Transaksi */}
           <div className="pt-3 border-t border-slate-100 flex justify-end">
@@ -1196,23 +1431,29 @@ export const TabCommand: React.FC<TabCommandProps> = ({
         </div>
       )}
 
-      {/* COMMAND: NOTIFIKASI (Option A: Collapsible Accordion Cards) */}
+      {/* COMMAND: NOTIFIKASI (Option B: Sub-Tab Pill di Dalam Halaman) */}
       {selectedCommand === 'Notifikasi' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">Respon Notifikasi Sistem</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Klik salah satu respon notifikasi untuk mengatur foto, pesan, footer, dan tombol interaktif.
-            </p>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-5">
+          <div className="space-y-3.5">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Respon Notifikasi Sistem</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Pilih sub-tab di bawah untuk mengatur foto, pesan, footer, dan tombol interaktif untuk notifikasi otomatis.
+              </p>
+            </div>
+
+            <ResponseSubTabPillBar
+              items={notifSubTabs}
+              activeKey={activeNotifPill}
+              onSelect={setActiveNotifPill}
+              ariaLabel="Sub-tab Respon Notifikasi Sistem"
+            />
           </div>
 
-          <div className="space-y-3">
-            <ResponseAccordionCard
-              indexNumber={1}
+          {activeNotifPill === 'order_group_notif' && (
+            <ResponseEditorPanel
               title="Notifikasi Order Grup ke DM"
               description="Pemberitahuan di grup untuk lanjut konfirmasi di DM."
-              isExpanded={expandedNotif === 'order_group_notif'}
-              onToggleExpand={() => toggleAccordion(expandedNotif, setExpandedNotif, 'order_group_notif')}
               responseKey="order_group_notif"
               extraConfig={getExtra('order_group_notif')}
               availablePictures={availablePictures}
@@ -1241,13 +1482,12 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
+          )}
 
-            <ResponseAccordionCard
-              indexNumber={2}
+          {activeNotifPill === 'stock_empty' && (
+            <ResponseEditorPanel
               title="Pesan Stok Kosong / Habis"
               description="Balasan saat varian yang dipilih stoknya 0."
-              isExpanded={expandedNotif === 'stock_empty'}
-              onToggleExpand={() => toggleAccordion(expandedNotif, setExpandedNotif, 'stock_empty')}
               responseKey="stock_empty"
               extraConfig={getExtra('stock_empty')}
               availablePictures={availablePictures}
@@ -1276,13 +1516,12 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
+          )}
 
-            <ResponseAccordionCard
-              indexNumber={3}
+          {activeNotifPill === 'checkout_session_expired' && (
+            <ResponseEditorPanel
               title="Sesi Checkout Habis (3 Menit)"
               description="Notifikasi saat pembeli tidak merespon konfirmasi."
-              isExpanded={expandedNotif === 'checkout_session_expired'}
-              onToggleExpand={() => toggleAccordion(expandedNotif, setExpandedNotif, 'checkout_session_expired')}
               responseKey="checkout_session_expired"
               extraConfig={getExtra('checkout_session_expired')}
               availablePictures={availablePictures}
@@ -1311,13 +1550,12 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
+          )}
 
-            <ResponseAccordionCard
-              indexNumber={4}
+          {activeNotifPill === 'promo_cancelled' && (
+            <ResponseEditorPanel
               title="Pembatalan Kupon Promo ('BATAL')"
               description="Balasan saat pembeli batal pakai kupon dan bayar normal."
-              isExpanded={expandedNotif === 'promo_cancelled'}
-              onToggleExpand={() => toggleAccordion(expandedNotif, setExpandedNotif, 'promo_cancelled')}
               responseKey="promo_cancelled"
               extraConfig={getExtra('promo_cancelled')}
               availablePictures={availablePictures}
@@ -1346,7 +1584,7 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
-          </div>
+          )}
 
           {/* Save Button Notifikasi */}
           <div className="pt-3 border-t border-slate-100 flex justify-end">
@@ -1363,23 +1601,29 @@ export const TabCommand: React.FC<TabCommandProps> = ({
         </div>
       )}
 
-      {/* COMMAND: KONTAK & INFO (Option A: Collapsible Accordion Cards + Footer Seragam) */}
+      {/* COMMAND: KONTAK & INFO (Option B: Sub-Tab Pill di Dalam Halaman) */}
       {selectedCommand === 'Kontak' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">Kontak Toko &amp; Peringatan Sewa</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Klik salah satu respon kontak atau peringatan untuk mengatur foto, pesan, footer, dan tombol interaktif.
-            </p>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-5">
+          <div className="space-y-3.5">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Kontak Toko &amp; Peringatan Sewa</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Pilih sub-tab di bawah untuk mengatur foto, pesan, footer, dan tombol interaktif untuk kontak maupun peringatan sewa.
+              </p>
+            </div>
+
+            <ResponseSubTabPillBar
+              items={kontakSubTabs}
+              activeKey={activeKontakPill}
+              onSelect={setActiveKontakPill}
+              ariaLabel="Sub-tab Respon Kontak Toko dan Sewa"
+            />
           </div>
 
-          <div className="space-y-3">
-            <ResponseAccordionCard
-              indexNumber={1}
+          {activeKontakPill === 'contact_owner_empty' && (
+            <ResponseEditorPanel
               title="Kontak Owner Belum Diatur"
               description="Balasan perintah /owner bila nomor belum diset."
-              isExpanded={expandedKontak === 'contact_owner_empty'}
-              onToggleExpand={() => toggleAccordion(expandedKontak, setExpandedKontak, 'contact_owner_empty')}
               responseKey="contact_owner_empty"
               extraConfig={getExtra('contact_owner_empty')}
               availablePictures={availablePictures}
@@ -1408,13 +1652,12 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
+          )}
 
-            <ResponseAccordionCard
-              indexNumber={2}
+          {activeKontakPill === 'contact_admin_empty' && (
+            <ResponseEditorPanel
               title="Kontak CS / Admin Belum Diatur"
               description="Balasan perintah /admin bila nomor belum diset."
-              isExpanded={expandedKontak === 'contact_admin_empty'}
-              onToggleExpand={() => toggleAccordion(expandedKontak, setExpandedKontak, 'contact_admin_empty')}
               responseKey="contact_admin_empty"
               extraConfig={getExtra('contact_admin_empty')}
               availablePictures={availablePictures}
@@ -1443,13 +1686,12 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
+          )}
 
-            <ResponseAccordionCard
-              indexNumber={3}
+          {activeKontakPill === 'expiry_warning_owner' && (
+            <ResponseEditorPanel
               title="Peringatan Masa Sewa Kedaluwarsa"
               description="Notifikasi ke WhatsApp owner sebelum masa aktif habis."
-              isExpanded={expandedKontak === 'expiry_warning_owner'}
-              onToggleExpand={() => toggleAccordion(expandedKontak, setExpandedKontak, 'expiry_warning_owner')}
               responseKey="expiry_warning_owner"
               extraConfig={getExtra('expiry_warning_owner')}
               availablePictures={availablePictures}
@@ -1478,7 +1720,7 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onDeleteButton={onDeleteButton}
               showToast={showToast}
             />
-          </div>
+          )}
 
           {/* Save Button Kontak */}
           <div className="pt-3 border-t border-slate-100 flex justify-end">
@@ -1490,6 +1732,440 @@ export const TabCommand: React.FC<TabCommandProps> = ({
             >
               {isSavingConfig ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
               <span>Simpan Respon Kontak</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* COMMAND: GRUP (Moderasi & Proteksi AntiKudeta) */}
+      {selectedCommand === 'Grup' && (
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-5">
+          <div className="space-y-3.5">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Respon Moderasi &amp; Keamanan Grup</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Atur pesan balasan command grup (Kick, Open, Close &amp; Proteksi AntiKudeta Owner).
+              </p>
+            </div>
+
+            <ResponseSubTabPillBar
+              items={grupSubTabs}
+              activeKey={activeGrupPill}
+              onSelect={setActiveGrupPill}
+              ariaLabel="Sub-tab Respon Moderasi Grup"
+            />
+          </div>
+
+          {activeGrupPill === 'kick_anti_kudeta' && (
+            <ResponseEditorPanel
+              title="Pesan Kudeta Grup (AntiKudeta Owner)"
+              description="Dikirim otomatis saat admin grup mencoba mengeluarkan nomor Owner via command Kick."
+              responseKey="kick_anti_kudeta"
+              extraConfig={getExtra('kick_anti_kudeta')}
+              availablePictures={availablePictures}
+              setAvailablePictures={setAvailablePictures}
+              onUpdateExtra={(patch) => onUpdateResponseExtra('kick_anti_kudeta', patch)}
+              textValue={kickAntiKudetaText}
+              onChangeText={setKickAntiKudetaText}
+              textRows={4}
+              textPlaceholder="Tulis pesan peringatan AntiKudeta grup di sini..."
+              variableTags={[
+                { tag: '@{pelakuNumber}', tone: 'rose' },
+                { tag: '{ownerName}', tone: 'emerald' },
+                '{pelakuName}',
+                '{ownerNumber}',
+                '{groupName}',
+                '{storeName}',
+              ]}
+              onInsertVariable={(ph) => insertTag(ph, kickAntiKudetaText, setKickAntiKudetaText)}
+              footerLabel="Teks Footer Kudeta Grup"
+              footerValue={kickAntiKudetaFooter}
+              onChangeFooter={setKickAntiKudetaFooter}
+              footerPlaceholder="{storeName} • Proteksi AntiKudeta"
+              onInsertFooterVariable={(ph) => insertTag(ph, kickAntiKudetaFooter, setKickAntiKudetaFooter)}
+              onOpenTemplate={() =>
+                openTemplatePicker(
+                  'kick_anti_kudeta',
+                  'Kudeta Grup (AntiKudeta)',
+                  kickAntiKudetaText,
+                  setKickAntiKudetaText,
+                  setKickAntiKudetaFooter
+                )
+              }
+              onResetDefault={() => {
+                setKickAntiKudetaText(
+                  '[AntiKudeta] @{pelakuNumber} terdeteksi mencoba mengeluarkan {ownerName} (Owner)'
+                );
+                setKickAntiKudetaFooter('{storeName} • Proteksi AntiKudeta');
+                showToast('Template Kudeta Grup direset ke default');
+              }}
+              onAddButton={onOpenAddButtonModal}
+              onEditButton={onEditButton}
+              onDeleteButton={onDeleteButton}
+              showToast={showToast}
+            />
+          )}
+
+          {activeGrupPill === 'kick_bot_not_admin' && (
+            <ResponseEditorPanel
+              title="Pesan Bot Bukan Admin Grup"
+              description="Dikirim saat admin grup memicu command Kick namun nomor bot belum dijadikan admin grup."
+              responseKey="kick_bot_not_admin"
+              extraConfig={getExtra('kick_bot_not_admin')}
+              availablePictures={availablePictures}
+              setAvailablePictures={setAvailablePictures}
+              onUpdateExtra={(patch) => onUpdateResponseExtra('kick_bot_not_admin', patch)}
+              textValue={kickBotNotAdminText}
+              onChangeText={setKickBotNotAdminText}
+              textRows={4}
+              textPlaceholder="Tulis pesan pemberitahuan bot belum menjadi admin grup..."
+              variableTags={['{groupName}', '@{pelakuNumber}', '{pelakuName}', '{storeName}']}
+              onInsertVariable={(ph) => insertTag(ph, kickBotNotAdminText, setKickBotNotAdminText)}
+              footerLabel="Teks Footer Bot Bukan Admin"
+              footerValue={kickBotNotAdminFooter}
+              onChangeFooter={setKickBotNotAdminFooter}
+              footerPlaceholder="{storeName} • Moderasi Grup"
+              onInsertFooterVariable={(ph) => insertTag(ph, kickBotNotAdminFooter, setKickBotNotAdminFooter)}
+              onOpenTemplate={() =>
+                openTemplatePicker(
+                  'kick_bot_not_admin',
+                  'Bot Bukan Admin Grup',
+                  kickBotNotAdminText,
+                  setKickBotNotAdminText,
+                  setKickBotNotAdminFooter
+                )
+              }
+              onResetDefault={() => {
+                setKickBotNotAdminText(
+                  '⚠️ *Bot Bukan Admin*\nBot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat mengeluarkan anggota.\n\nSilakan jadikan nomor bot sebagai admin grup terlebih dahulu.'
+                );
+                setKickBotNotAdminFooter('{storeName} • Moderasi Grup');
+                showToast('Template Bot Bukan Admin direset ke default');
+              }}
+              onAddButton={onOpenAddButtonModal}
+              onEditButton={onEditButton}
+              onDeleteButton={onDeleteButton}
+              showToast={showToast}
+            />
+          )}
+
+          {activeGrupPill === 'kick_success' && (
+            <ResponseEditorPanel
+              title="Pesan Berhasil Mengeluarkan Anggota"
+              description="Dikirim setelah bot berhasil mengeluarkan anggota target dari grup."
+              responseKey="kick_success"
+              extraConfig={getExtra('kick_success')}
+              availablePictures={availablePictures}
+              setAvailablePictures={setAvailablePictures}
+              onUpdateExtra={(patch) => onUpdateResponseExtra('kick_success', patch)}
+              textValue={kickSuccessText}
+              onChangeText={setKickSuccessText}
+              textRows={4}
+              textPlaceholder="Tulis pesan konfirmasi anggota berhasil dikeluarkan..."
+              variableTags={[
+                { tag: '@{targetNumber}', tone: 'amber' },
+                '@{pelakuNumber}',
+                '{pelakuName}',
+                '{groupName}',
+                '{storeName}',
+              ]}
+              onInsertVariable={(ph) => insertTag(ph, kickSuccessText, setKickSuccessText)}
+              footerLabel="Teks Footer Berhasil Kick"
+              footerValue={kickSuccessFooter}
+              onChangeFooter={setKickSuccessFooter}
+              footerPlaceholder="{storeName} • Moderasi Grup"
+              onInsertFooterVariable={(ph) => insertTag(ph, kickSuccessFooter, setKickSuccessFooter)}
+              onOpenTemplate={() =>
+                openTemplatePicker(
+                  'kick_success',
+                  'Berhasil Mengeluarkan Anggota',
+                  kickSuccessText,
+                  setKickSuccessText,
+                  setKickSuccessFooter
+                )
+              }
+              onResetDefault={() => {
+                setKickSuccessText(
+                  '✅ @{targetNumber} berhasil dikeluarkan dari grup *{groupName}* oleh @{pelakuNumber}.'
+                );
+                setKickSuccessFooter('{storeName} • Moderasi Grup');
+                showToast('Template Berhasil Kick direset ke default');
+              }}
+              onAddButton={onOpenAddButtonModal}
+              onEditButton={onEditButton}
+              onDeleteButton={onDeleteButton}
+              showToast={showToast}
+            />
+          )}
+
+          {activeGrupPill === 'open_bot_not_admin' && (
+            <ResponseEditorPanel
+              title="Open: Pesan Bot Bukan Admin Grup"
+              description="Dikirim saat admin grup memicu command Open namun nomor bot belum dijadikan admin grup."
+              responseKey="open_bot_not_admin"
+              extraConfig={getExtra('open_bot_not_admin')}
+              availablePictures={availablePictures}
+              setAvailablePictures={setAvailablePictures}
+              onUpdateExtra={(patch) => onUpdateResponseExtra('open_bot_not_admin', patch)}
+              textValue={openBotNotAdminText}
+              onChangeText={setOpenBotNotAdminText}
+              textRows={4}
+              textPlaceholder="Tulis pesan pemberitahuan bot belum menjadi admin saat command Open..."
+              variableTags={['{groupName}', '@{pelakuNumber}', '{pelakuName}', '{storeName}']}
+              onInsertVariable={(ph) => insertTag(ph, openBotNotAdminText, setOpenBotNotAdminText)}
+              footerLabel="Teks Footer Open Bot Bukan Admin"
+              footerValue={openBotNotAdminFooter}
+              onChangeFooter={setOpenBotNotAdminFooter}
+              footerPlaceholder="{storeName} • Moderasi Grup"
+              onInsertFooterVariable={(ph) => insertTag(ph, openBotNotAdminFooter, setOpenBotNotAdminFooter)}
+              onOpenTemplate={() =>
+                openTemplatePicker(
+                  'open_bot_not_admin',
+                  'Open: Bot Bukan Admin Grup',
+                  openBotNotAdminText,
+                  setOpenBotNotAdminText,
+                  setOpenBotNotAdminFooter
+                )
+              }
+              onResetDefault={() => {
+                setOpenBotNotAdminText(
+                  '⚠️ *Bot Bukan Admin*\nBot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat membuka pengaturan chat grup.\n\nSilakan jadikan nomor bot sebagai admin grup terlebih dahulu.'
+                );
+                setOpenBotNotAdminFooter('{storeName} • Moderasi Grup');
+                showToast('Template Open: Bot Bukan Admin direset ke default');
+              }}
+              onAddButton={onOpenAddButtonModal}
+              onEditButton={onEditButton}
+              onDeleteButton={onDeleteButton}
+              showToast={showToast}
+            />
+          )}
+
+          {activeGrupPill === 'open_already' && (
+            <ResponseEditorPanel
+              title="Open: Pesan Grup Sudah Terbuka"
+              description="Dikirim saat admin grup memicu command Open padahal grup sudah dalam keadaan terbuka untuk semua anggota."
+              responseKey="open_already"
+              extraConfig={getExtra('open_already')}
+              availablePictures={availablePictures}
+              setAvailablePictures={setAvailablePictures}
+              onUpdateExtra={(patch) => onUpdateResponseExtra('open_already', patch)}
+              textValue={openAlreadyText}
+              onChangeText={setOpenAlreadyText}
+              textRows={3}
+              textPlaceholder="Tulis pesan informasi kondisi grup sudah terbuka..."
+              variableTags={['{groupName}', '@{pelakuNumber}', '{pelakuName}', '{storeName}']}
+              onInsertVariable={(ph) => insertTag(ph, openAlreadyText, setOpenAlreadyText)}
+              footerLabel="Teks Footer Open Sudah Terbuka"
+              footerValue={openAlreadyFooter}
+              onChangeFooter={setOpenAlreadyFooter}
+              footerPlaceholder="{storeName} • Moderasi Grup"
+              onInsertFooterVariable={(ph) => insertTag(ph, openAlreadyFooter, setOpenAlreadyFooter)}
+              onOpenTemplate={() =>
+                openTemplatePicker(
+                  'open_already',
+                  'Open: Grup Sudah Terbuka',
+                  openAlreadyText,
+                  setOpenAlreadyText,
+                  setOpenAlreadyFooter
+                )
+              }
+              onResetDefault={() => {
+                setOpenAlreadyText(
+                  'ℹ️ Kondisi grup *{groupName}* saat ini sudah dalam keadaan terbuka (semua anggota dapat mengirim pesan).'
+                );
+                setOpenAlreadyFooter('{storeName} • Moderasi Grup');
+                showToast('Template Open: Grup Sudah Terbuka direset ke default');
+              }}
+              onAddButton={onOpenAddButtonModal}
+              onEditButton={onEditButton}
+              onDeleteButton={onDeleteButton}
+              showToast={showToast}
+            />
+          )}
+
+          {activeGrupPill === 'open_success' && (
+            <ResponseEditorPanel
+              title="Open: Pesan Grup Berhasil Dibuka"
+              description="Dikirim setelah bot berhasil membuka pengaturan grup agar semua anggota dapat mengirim pesan."
+              responseKey="open_success"
+              extraConfig={getExtra('open_success')}
+              availablePictures={availablePictures}
+              setAvailablePictures={setAvailablePictures}
+              onUpdateExtra={(patch) => onUpdateResponseExtra('open_success', patch)}
+              textValue={openSuccessText}
+              onChangeText={setOpenSuccessText}
+              textRows={3}
+              textPlaceholder="Tulis pesan konfirmasi grup berhasil dibuka..."
+              variableTags={['@{pelakuNumber}', '{pelakuName}', '{groupName}', '{storeName}']}
+              onInsertVariable={(ph) => insertTag(ph, openSuccessText, setOpenSuccessText)}
+              footerLabel="Teks Footer Berhasil Buka Grup"
+              footerValue={openSuccessFooter}
+              onChangeFooter={setOpenSuccessFooter}
+              footerPlaceholder="{storeName} • Moderasi Grup"
+              onInsertFooterVariable={(ph) => insertTag(ph, openSuccessFooter, setOpenSuccessFooter)}
+              onOpenTemplate={() =>
+                openTemplatePicker(
+                  'open_success',
+                  'Open: Berhasil Buka Grup',
+                  openSuccessText,
+                  setOpenSuccessText,
+                  setOpenSuccessFooter
+                )
+              }
+              onResetDefault={() => {
+                setOpenSuccessText(
+                  '🔓 Grup *{groupName}* berhasil dibuka oleh @{pelakuNumber}. Sekarang semua anggota dapat mengirim pesan.'
+                );
+                setOpenSuccessFooter('{storeName} • Moderasi Grup');
+                showToast('Template Open: Berhasil Buka Grup direset ke default');
+              }}
+              onAddButton={onOpenAddButtonModal}
+              onEditButton={onEditButton}
+              onDeleteButton={onDeleteButton}
+              showToast={showToast}
+            />
+          )}
+
+          {activeGrupPill === 'close_bot_not_admin' && (
+            <ResponseEditorPanel
+              title="Close: Pesan Bot Bukan Admin Grup"
+              description="Dikirim saat admin grup memicu command Close namun nomor bot belum dijadikan admin grup."
+              responseKey="close_bot_not_admin"
+              extraConfig={getExtra('close_bot_not_admin')}
+              availablePictures={availablePictures}
+              setAvailablePictures={setAvailablePictures}
+              onUpdateExtra={(patch) => onUpdateResponseExtra('close_bot_not_admin', patch)}
+              textValue={closeBotNotAdminText}
+              onChangeText={setCloseBotNotAdminText}
+              textRows={4}
+              textPlaceholder="Tulis pesan pemberitahuan bot belum menjadi admin saat command Close..."
+              variableTags={['{groupName}', '@{pelakuNumber}', '{pelakuName}', '{storeName}']}
+              onInsertVariable={(ph) => insertTag(ph, closeBotNotAdminText, setCloseBotNotAdminText)}
+              footerLabel="Teks Footer Close Bot Bukan Admin"
+              footerValue={closeBotNotAdminFooter}
+              onChangeFooter={setCloseBotNotAdminFooter}
+              footerPlaceholder="{storeName} • Moderasi Grup"
+              onInsertFooterVariable={(ph) => insertTag(ph, closeBotNotAdminFooter, setCloseBotNotAdminFooter)}
+              onOpenTemplate={() =>
+                openTemplatePicker(
+                  'close_bot_not_admin',
+                  'Close: Bot Bukan Admin Grup',
+                  closeBotNotAdminText,
+                  setCloseBotNotAdminText,
+                  setCloseBotNotAdminFooter
+                )
+              }
+              onResetDefault={() => {
+                setCloseBotNotAdminText(
+                  '⚠️ *Bot Bukan Admin*\nBot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat menutup pengaturan chat grup.\n\nSilakan jadikan nomor bot sebagai admin grup terlebih dahulu.'
+                );
+                setCloseBotNotAdminFooter('{storeName} • Moderasi Grup');
+                showToast('Template Close: Bot Bukan Admin direset ke default');
+              }}
+              onAddButton={onOpenAddButtonModal}
+              onEditButton={onEditButton}
+              onDeleteButton={onDeleteButton}
+              showToast={showToast}
+            />
+          )}
+
+          {activeGrupPill === 'close_already' && (
+            <ResponseEditorPanel
+              title="Close: Pesan Grup Sudah Ditutup"
+              description="Dikirim saat admin grup memicu command Close padahal grup sudah dalam keadaan tertutup (hanya admin yang dapat mengirim pesan)."
+              responseKey="close_already"
+              extraConfig={getExtra('close_already')}
+              availablePictures={availablePictures}
+              setAvailablePictures={setAvailablePictures}
+              onUpdateExtra={(patch) => onUpdateResponseExtra('close_already', patch)}
+              textValue={closeAlreadyText}
+              onChangeText={setCloseAlreadyText}
+              textRows={3}
+              textPlaceholder="Tulis pesan informasi kondisi grup sudah ditutup..."
+              variableTags={['{groupName}', '@{pelakuNumber}', '{pelakuName}', '{storeName}']}
+              onInsertVariable={(ph) => insertTag(ph, closeAlreadyText, setCloseAlreadyText)}
+              footerLabel="Teks Footer Close Sudah Ditutup"
+              footerValue={closeAlreadyFooter}
+              onChangeFooter={setCloseAlreadyFooter}
+              footerPlaceholder="{storeName} • Moderasi Grup"
+              onInsertFooterVariable={(ph) => insertTag(ph, closeAlreadyFooter, setCloseAlreadyFooter)}
+              onOpenTemplate={() =>
+                openTemplatePicker(
+                  'close_already',
+                  'Close: Grup Sudah Ditutup',
+                  closeAlreadyText,
+                  setCloseAlreadyText,
+                  setCloseAlreadyFooter
+                )
+              }
+              onResetDefault={() => {
+                setCloseAlreadyText(
+                  'ℹ️ Kondisi grup *{groupName}* saat ini sudah dalam keadaan ditutup (hanya admin yang dapat mengirim pesan).'
+                );
+                setCloseAlreadyFooter('{storeName} • Moderasi Grup');
+                showToast('Template Close: Grup Sudah Ditutup direset ke default');
+              }}
+              onAddButton={onOpenAddButtonModal}
+              onEditButton={onEditButton}
+              onDeleteButton={onDeleteButton}
+              showToast={showToast}
+            />
+          )}
+
+          {activeGrupPill === 'close_success' && (
+            <ResponseEditorPanel
+              title="Close: Pesan Grup Berhasil Ditutup"
+              description="Dikirim setelah bot berhasil menutup pengaturan grup sehingga hanya admin yang dapat mengirim pesan."
+              responseKey="close_success"
+              extraConfig={getExtra('close_success')}
+              availablePictures={availablePictures}
+              setAvailablePictures={setAvailablePictures}
+              onUpdateExtra={(patch) => onUpdateResponseExtra('close_success', patch)}
+              textValue={closeSuccessText}
+              onChangeText={setCloseSuccessText}
+              textRows={3}
+              textPlaceholder="Tulis pesan konfirmasi grup berhasil ditutup..."
+              variableTags={['@{pelakuNumber}', '{pelakuName}', '{groupName}', '{storeName}']}
+              onInsertVariable={(ph) => insertTag(ph, closeSuccessText, setCloseSuccessText)}
+              footerLabel="Teks Footer Berhasil Tutup Grup"
+              footerValue={closeSuccessFooter}
+              onChangeFooter={setCloseSuccessFooter}
+              footerPlaceholder="{storeName} • Moderasi Grup"
+              onInsertFooterVariable={(ph) => insertTag(ph, closeSuccessFooter, setCloseSuccessFooter)}
+              onOpenTemplate={() =>
+                openTemplatePicker(
+                  'close_success',
+                  'Close: Berhasil Tutup Grup',
+                  closeSuccessText,
+                  setCloseSuccessText,
+                  setCloseSuccessFooter
+                )
+              }
+              onResetDefault={() => {
+                setCloseSuccessText(
+                  '🔒 Grup *{groupName}* berhasil ditutup oleh @{pelakuNumber}. Sekarang hanya admin yang dapat mengirim pesan.'
+                );
+                setCloseSuccessFooter('{storeName} • Moderasi Grup');
+                showToast('Template Close: Berhasil Tutup Grup direset ke default');
+              }}
+              onAddButton={onOpenAddButtonModal}
+              onEditButton={onEditButton}
+              onDeleteButton={onDeleteButton}
+              showToast={showToast}
+            />
+          )}
+
+          {/* Save Button Grup */}
+          <div className="pt-3 border-t border-slate-100 flex justify-end">
+            <button
+              type="button"
+              disabled={isSavingConfig}
+              onClick={() => onSaveGrup()}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 sm:py-2 rounded-xl bg-[#0084D1] hover:bg-[#0073b7] active:scale-[0.98] text-white text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {isSavingConfig ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              <span>Simpan Respon Grup</span>
             </button>
           </div>
         </div>

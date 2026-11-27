@@ -7,7 +7,9 @@ frontend/dist/
 .env.*
 !.env.example
 
-database/
+/database/
+!backend/database/
+!admin-backend/database/
 auth_info_baileys/
 storage/tenants/
 *.db

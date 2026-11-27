@@ -61,6 +61,15 @@ const CATEGORY_OPTIONS: { id: TemplateCategory; label: string; desc: string }[] 
   { id: 'contact_owner_empty', label: 'Kontak: Owner Belum Diatur', desc: 'Balasan bot saat kontak owner toko belum diatur' },
   { id: 'contact_admin_empty', label: 'Kontak: Admin Belum Diatur', desc: 'Balasan bot saat kontak CS/admin toko belum diatur' },
   { id: 'expiry_warning_owner', label: 'Peringatan: Masa Sewa Bot', desc: 'Notifikasi WhatsApp masa sewa bot tenant akan berakhir' },
+  { id: 'kick_anti_kudeta', label: 'Grup: Kudeta Grup (AntiKudeta)', desc: 'Peringatan saat admin grup mencoba mengeluarkan Owner via command Kick' },
+  { id: 'kick_bot_not_admin', label: 'Grup Kick: Bot Bukan Admin', desc: 'Balasan saat command Kick dipicu namun bot belum menjadi admin grup' },
+  { id: 'kick_success', label: 'Grup Kick: Berhasil Mengeluarkan', desc: 'Konfirmasi setelah bot berhasil mengeluarkan anggota dari grup' },
+  { id: 'open_bot_not_admin', label: 'Grup Open: Bot Bukan Admin', desc: 'Balasan saat command Open dipicu namun bot belum menjadi admin grup' },
+  { id: 'open_already', label: 'Grup Open: Sudah Terbuka', desc: 'Informasi saat command Open dipicu padahal grup sudah terbuka' },
+  { id: 'open_success', label: 'Grup Open: Berhasil Dibuka', desc: 'Konfirmasi setelah bot berhasil membuka grup untuk semua anggota' },
+  { id: 'close_bot_not_admin', label: 'Grup Close: Bot Bukan Admin', desc: 'Balasan saat command Close dipicu namun bot belum menjadi admin grup' },
+  { id: 'close_already', label: 'Grup Close: Sudah Ditutup', desc: 'Informasi saat command Close dipicu padahal grup sudah ditutup' },
+  { id: 'close_success', label: 'Grup Close: Berhasil Ditutup', desc: 'Konfirmasi setelah bot berhasil menutup grup hanya untuk admin' },
 ];
 
 const AVAILABLE_PLACEHOLDERS = [
@@ -71,6 +80,11 @@ const AVAILABLE_PLACEHOLDERS = [
   { tag: '{adminNumber}', desc: 'No. CS/Admin' },
   { tag: '{customerName}', desc: 'Nama Pembeli' },
   { tag: '{customerNumber}', desc: 'No. WA Pembeli' },
+  { tag: '{pelakuNumber}', desc: 'No. WA Admin Pelaku (Mention)' },
+  { tag: '{pelakuName}', desc: 'Nama Admin Pelaku' },
+  { tag: '{targetNumber}', desc: 'No. WA Target Kick (Mention)' },
+  { tag: '{targetName}', desc: 'Nama Target Kick' },
+  { tag: '{groupName}', desc: 'Nama Grup WhatsApp' },
   { tag: '{orderId}', desc: 'ID Pesanan' },
   { tag: '{totalPrice}', desc: 'Total Harga Lunas' },
   { tag: '{paymentMethod}', desc: 'Metode Bayar' },

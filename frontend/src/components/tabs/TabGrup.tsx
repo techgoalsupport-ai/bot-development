@@ -208,7 +208,7 @@ export const TabGrup: React.FC<TabGrupProps> = ({
             Bot WhatsApp Belum Terhubung
           </p>
           <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
-            Hubungkan bot terlebih dahulu melalui menu Connection untuk memuat daftar grup.
+            Hubungkan bot terlebih dahulu melalui menu Koneksi &amp; Layanan untuk memuat daftar grup.
           </p>
         </div>
       ) : (

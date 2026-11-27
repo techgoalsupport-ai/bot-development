@@ -26,7 +26,7 @@ export function useLunasQrisData(
         error: null,
       });
       if (isManual) {
-        showToast('API Key LunasQRIS belum diisi di tab Connection.');
+        showToast('API Key LunasQRIS belum diisi di tab Koneksi & Layanan.');
       }
       return;
     }

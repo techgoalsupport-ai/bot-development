@@ -77,11 +77,61 @@ botRouter.post('/start', async (req: Request, res: Response) => {
       });
     }
 
-    const { phoneNumber, customCode } = req.body || {};
+    const { phoneNumber, customCode, useSavedSession } = req.body || {};
+    if (useSavedSession) {
+      const currentStatus = botManager.getStatus();
+      if (!currentStatus.isRegistered) {
+        return res.status(400).json({
+          success: false,
+          error: 'Sesi WhatsApp tersimpan tidak ditemukan. Silakan lakukan pairing ulang.',
+        });
+      }
+      const result = await botManager.start(undefined, undefined, true);
+      return res.json(result);
+    }
+
     const result = await botManager.start(phoneNumber, customCode);
     return res.json(result);
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || 'Gagal menyalakan bot' });
+  }
+});
+
+// Reconnect bot (putuskan lalu hubungkan ulang otomatis dengan sesi tersimpan)
+botRouter.post('/reconnect', async (_req: Request, res: Response) => {
+  try {
+    const tenantId = getActiveTenantId();
+    const accountStatus = await TenantStatusService.enforceRealtimeTenantExpiry(tenantId);
+    if (accountStatus !== 'active') {
+      const isSuspended = accountStatus === 'suspended';
+      return res.status(403).json({
+        success: false,
+        suspended: isSuspended,
+        expired: accountStatus === 'expired',
+        error: isSuspended
+          ? 'Akses Ditolak: Akun toko Anda sedang ditangguhkan (Suspended) oleh Master Admin.'
+          : 'Akses Ditolak: Masa sewa bot Anda telah kedaluwarsa (Expired). Silakan perpanjang masa aktif terlebih dahulu.',
+      });
+    }
+
+    const currentStore = botManager.config?.storeInfo || loadStoreInfo();
+    const hasStoreName = Boolean(currentStore?.storeName && currentStore.storeName.trim());
+    const hasOwnerName = Boolean(currentStore?.ownerName && currentStore.ownerName.trim());
+    const hasOwnerNumber = Boolean(currentStore?.ownerNumber && currentStore.ownerNumber.trim());
+
+    if (!hasStoreName || !hasOwnerName || !hasOwnerNumber) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Akses Dikunci: Anda wajib melengkapi Nama Toko, Nama Owner, dan Nomer Owner di Store Info sebelum menjalankan bot WhatsApp!',
+        locked: true,
+      });
+    }
+
+    const result = await botManager.reconnect();
+    return res.json({ ...result, success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Gagal menghubungkan ulang bot' });
   }
 });
 

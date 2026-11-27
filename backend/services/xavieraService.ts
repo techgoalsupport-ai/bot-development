@@ -654,7 +654,7 @@ export async function getProductVariants(
 
             const resultVariants: ProductVariantItem[] = [];
             for (const item of listToProcess) {
-              const cat = item.category || item.type || 'Layanan Digital';
+              const cat = (item.category || item.kategori || '').trim();
               const pName = item.name || productName;
 
               // Jika produk dari API Xaviera memiliki array variants asli (misal YouTube memiliki 3 varian)

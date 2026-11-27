@@ -14,6 +14,7 @@ export interface BotStatusResponse {
   logs: LogEntry[];
   hasSession: boolean;
   isRegistered?: boolean;
+  registered?: boolean;
   accountStatus?: 'active' | 'suspended' | 'expired';
   expiresAt?: string;
   createdAt?: string;
@@ -62,7 +63,16 @@ export type ResponseConfigKey =
   | 'promo_cancelled'
   | 'contact_owner_empty'
   | 'contact_admin_empty'
-  | 'expiry_warning_owner';
+  | 'expiry_warning_owner'
+  | 'kick_anti_kudeta'
+  | 'kick_bot_not_admin'
+  | 'kick_success'
+  | 'open_bot_not_admin'
+  | 'open_already'
+  | 'open_success'
+  | 'close_bot_not_admin'
+  | 'close_already'
+  | 'close_success';
 
 export type MandatoryButtonRole =
   | 'carousel_order'
@@ -218,9 +228,14 @@ export interface TransactionItem {
   customerName: string;
   productName: string;
   variantName: string;
+  category?: string;
   nominal: number;
   uniqueCode: number;
   total: number;
+  sellingPrice?: number;
+  costPrice?: number;
+  discountAmount?: number;
+  profit?: number;
   status: 'pending' | 'paid' | 'cancel';
   paymentUrl?: string;
   createdAt: string;
@@ -233,6 +248,13 @@ export interface TransactionSummary {
   pendingCount: number;
   cancelCount: number;
   totalRevenue: number;
+  totalProfit?: number;
+  revenue7d?: number;
+  prevRevenue7d?: number;
+  revenueChangePercent?: number;
+  profit7d?: number;
+  paidCount7d?: number;
+  margin7dPercent?: number;
 }
 
 
@@ -292,6 +314,25 @@ export interface CommandsConfig {
   contactAdminEmptyFooter?: string;
   expiryWarningOwnerText?: string;
   expiryWarningOwnerFooter?: string;
+  // Moderasi Grup (Kick, Open, Close & AntiKudeta)
+  kickAntiKudetaText?: string;
+  kickAntiKudetaFooter?: string;
+  kickBotNotAdminText?: string;
+  kickBotNotAdminFooter?: string;
+  kickSuccessText?: string;
+  kickSuccessFooter?: string;
+  openBotNotAdminText?: string;
+  openBotNotAdminFooter?: string;
+  openAlreadyText?: string;
+  openAlreadyFooter?: string;
+  openSuccessText?: string;
+  openSuccessFooter?: string;
+  closeBotNotAdminText?: string;
+  closeBotNotAdminFooter?: string;
+  closeAlreadyText?: string;
+  closeAlreadyFooter?: string;
+  closeSuccessText?: string;
+  closeSuccessFooter?: string;
   // Konfigurasi Foto & Tombol Per-Respon
   responseExtras?: ResponseExtrasMap;
 }

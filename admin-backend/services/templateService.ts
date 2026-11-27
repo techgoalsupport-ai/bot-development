@@ -1,6 +1,13 @@
 import { getMasterDb } from '../database/masterSqlite.ts';
-import { WhatsAppButton } from '../../backend/types/bot.types.ts';
 import {
+  MandatoryButtonRole,
+  QuickReplyTriggerAction,
+  ResponseConfigKey,
+  WhatsAppButton,
+  WhatsAppButtonType,
+} from '../../backend/types/bot.types.ts';
+import {
+  MANDATORY_BUTTON_SPECS,
   getDefaultButtonsForResponse,
   mergeMandatoryButtons,
 } from '../../backend/services/responseConfigHelper.ts';
@@ -25,6 +32,15 @@ export type TemplateCategory =
   | 'contact_owner_empty'
   | 'contact_admin_empty'
   | 'expiry_warning_owner'
+  | 'kick_anti_kudeta'
+  | 'kick_bot_not_admin'
+  | 'kick_success'
+  | 'open_bot_not_admin'
+  | 'open_already'
+  | 'open_success'
+  | 'close_bot_not_admin'
+  | 'close_already'
+  | 'close_success'
   | 'confirmation';
 
 export const ALL_TEMPLATE_CATEGORIES: TemplateCategory[] = [
@@ -47,6 +63,15 @@ export const ALL_TEMPLATE_CATEGORIES: TemplateCategory[] = [
   'contact_owner_empty',
   'contact_admin_empty',
   'expiry_warning_owner',
+  'kick_anti_kudeta',
+  'kick_bot_not_admin',
+  'kick_success',
+  'open_bot_not_admin',
+  'open_already',
+  'open_success',
+  'close_bot_not_admin',
+  'close_already',
+  'close_success',
   'confirmation',
 ];
 
@@ -78,6 +103,326 @@ export interface UpdateTemplateInput {
   footer_text?: string;
   buttons?: WhatsAppButton[];
   is_active?: boolean | number;
+}
+
+const MANDATORY_ROLE_ALIAS_TO_CANONICAL: Record<string, MandatoryButtonRole> = {
+  order: 'carousel_order',
+  carousel_order: 'carousel_order',
+  dropdown: 'list_dropdown',
+  list_dropdown: 'list_dropdown',
+  pay: 'invoice_pay_url',
+  invoice_pay_url: 'invoice_pay_url',
+  admin: 'invoice_contact_admin',
+  invoice_contact_admin: 'invoice_contact_admin',
+  promo: 'confirm_promo',
+  confirm_promo: 'confirm_promo',
+  direct: 'confirm_direct',
+  confirm_direct: 'confirm_direct',
+};
+
+const CANONICAL_ROLE_TO_SIMPLIFIED: Record<MandatoryButtonRole, string> = {
+  carousel_order: 'order',
+  list_dropdown: 'dropdown',
+  invoice_pay_url: 'pay',
+  invoice_contact_admin: 'admin',
+  confirm_promo: 'promo',
+  confirm_direct: 'direct',
+};
+
+const QUICK_REPLY_DEFAULT_OUTPUT: Record<Exclude<QuickReplyTriggerAction, 'unknown'>, string> = {
+  list: '.list',
+  menu: '.menu',
+  owner: 'contact_owner',
+  admin: 'contact_admin',
+};
+
+function normalizeShortButtonType(rawType: unknown, rawObj: Record<string, any>): WhatsAppButtonType {
+  const cleaned = typeof rawType === 'string' ? rawType.trim().toLowerCase() : '';
+  switch (cleaned) {
+    case 'reply':
+    case 'quick_reply':
+      return 'quick_reply';
+    case 'url':
+    case 'link':
+    case 'cta_url':
+      return 'cta_url';
+    case 'copy':
+    case 'cta_copy':
+      return 'cta_copy';
+    case 'call':
+    case 'phone':
+    case 'cta_call':
+      return 'cta_call';
+    case 'vcard':
+    case 'contact':
+      return 'vcard';
+    case 'reminder':
+    case 'cta_reminder':
+      return 'cta_reminder';
+    case 'cancel_reminder':
+    case 'cta_cancel_reminder':
+      return 'cta_cancel_reminder';
+    default: {
+      if (typeof rawObj.url === 'string' && rawObj.url.trim()) return 'cta_url';
+      if (typeof rawObj.phone === 'string' && rawObj.phone.trim()) {
+        return typeof rawObj.contactName === 'string' && rawObj.contactName.trim()
+          ? 'vcard'
+          : 'cta_call';
+      }
+      return 'quick_reply';
+    }
+  }
+}
+
+function normalizeTriggerAction(rawAction: unknown): QuickReplyTriggerAction | undefined {
+  if (typeof rawAction !== 'string') return undefined;
+  const cleaned = rawAction.trim().toLowerCase();
+  if (
+    cleaned === 'list' ||
+    cleaned === 'menu' ||
+    cleaned === 'owner' ||
+    cleaned === 'admin' ||
+    cleaned === 'unknown'
+  ) {
+    return cleaned;
+  }
+  return undefined;
+}
+
+export function normalizeJsonButtonInput(
+  raw: unknown,
+  category: TemplateCategory,
+): { button: WhatsAppButton | null; warnings: string[] } {
+  if (!raw || typeof raw !== 'object') {
+    return { button: null, warnings: [] };
+  }
+
+  const obj = raw as Record<string, any>;
+  const warnings: string[] = [];
+  const normalizedCat = (category === 'confirmation' ? 'confirm_summary' : category) as ResponseConfigKey;
+  const specs = MANDATORY_BUTTON_SPECS[normalizedCat] || [];
+
+  const rawRoleKey =
+    typeof obj.role === 'string'
+      ? obj.role.trim().toLowerCase()
+      : typeof obj.mandatoryRole === 'string'
+        ? obj.mandatoryRole.trim().toLowerCase()
+        : '';
+  const canonicalRole = rawRoleKey ? MANDATORY_ROLE_ALIAS_TO_CANONICAL[rawRoleKey] : undefined;
+
+  if (canonicalRole) {
+    const spec = specs.find((s) => s.mandatoryRole === canonicalRole);
+    if (spec) {
+      const explicitType =
+        typeof obj.type === 'string' && obj.type.trim()
+          ? normalizeShortButtonType(obj.type, obj)
+          : undefined;
+      const explicitValue = obj.output ?? obj.value ?? obj.url ?? obj.text ?? undefined;
+      const explicitValueStr =
+        typeof explicitValue === 'string' ? explicitValue.trim() : '';
+
+      if (
+        (explicitType && explicitType !== spec.type) ||
+        (explicitValueStr && explicitValueStr !== spec.output)
+      ) {
+        const displayRole = CANONICAL_ROLE_TO_SIMPLIFIED[canonicalRole] || canonicalRole;
+        warnings.push(
+          `[${normalizedCat}] Tombol wajib "${displayRole}" otomatis dinormalisasi ke tipe "${spec.type}" (${spec.output}); hanya nama "${String(obj.name || spec.name).trim()}" yang digunakan.`
+        );
+      }
+
+      const customName =
+        typeof obj.name === 'string' && obj.name.trim() ? obj.name.trim() : spec.name;
+      return {
+        button: {
+          ...spec,
+          name: customName,
+          mandatory: true,
+        },
+        warnings,
+      };
+    }
+  }
+
+  const resolvedType = normalizeShortButtonType(obj.type, obj);
+  const rawName = typeof obj.name === 'string' ? obj.name.trim() : '';
+  const rawId = typeof obj.id === 'string' && obj.id.trim() ? obj.id.trim() : '';
+
+  if (resolvedType === 'cta_url') {
+    const resolvedUrl = String(obj.url ?? obj.value ?? obj.output ?? '').trim();
+    return {
+      button: {
+        id: rawId,
+        type: 'cta_url',
+        name: rawName || '🌐 Kunjungi Link',
+        output: resolvedUrl,
+      },
+      warnings,
+    };
+  }
+
+  if (resolvedType === 'cta_copy') {
+    const resolvedCopy = String(obj.value ?? obj.text ?? obj.output ?? '').trim();
+    return {
+      button: {
+        id: rawId,
+        type: 'cta_copy',
+        name: rawName || '📋 Salin Teks',
+        output: resolvedCopy,
+      },
+      warnings,
+    };
+  }
+
+  if (resolvedType === 'cta_call') {
+    const resolvedPhone = String(
+      obj.phone ?? obj.callPhoneNumber ?? obj.value ?? obj.output ?? ''
+    ).trim();
+    return {
+      button: {
+        id: rawId,
+        type: 'cta_call',
+        name: rawName || '📞 Hubungi',
+        output: resolvedPhone,
+        callPhoneNumber: resolvedPhone,
+      },
+      warnings,
+    };
+  }
+
+  if (resolvedType === 'vcard') {
+    const resolvedPhone = String(
+      obj.phone ?? obj.callPhoneNumber ?? obj.value ?? obj.output ?? ''
+    ).trim();
+    const resolvedContactName = String(
+      obj.contactName ?? obj.callTargetName ?? rawName
+    ).trim();
+    return {
+      button: {
+        id: rawId,
+        type: 'vcard',
+        name: rawName || '👤 Simpan Kontak',
+        output: resolvedPhone,
+        callPhoneNumber: resolvedPhone,
+        callTargetName: resolvedContactName || rawName || 'Kontak',
+      },
+      warnings,
+    };
+  }
+
+  if (resolvedType === 'cta_reminder' || resolvedType === 'cta_cancel_reminder') {
+    const resolvedVal = String(obj.value ?? obj.output ?? rawName).trim();
+    return {
+      button: {
+        id: rawId,
+        type: resolvedType,
+        name:
+          rawName ||
+          (resolvedType === 'cta_reminder' ? '⏰ Ingatkan Saya' : '🔕 Batalkan Pengingat'),
+        output: resolvedVal,
+      },
+      warnings,
+    };
+  }
+
+  let resolvedAction = normalizeTriggerAction(
+    obj.action ?? obj.trigger ?? obj.triggerAction
+  );
+  let resolvedOutput = String(obj.output ?? obj.value ?? obj.text ?? '').trim();
+
+  if (!resolvedOutput && resolvedAction && resolvedAction !== 'unknown') {
+    resolvedOutput = QUICK_REPLY_DEFAULT_OUTPUT[resolvedAction];
+  }
+
+  if (!resolvedAction && resolvedOutput) {
+    const lowerOut = resolvedOutput.toLowerCase();
+    if (lowerOut === '.list' || lowerOut === 'list') resolvedAction = 'list';
+    else if (lowerOut === '.menu' || lowerOut === 'menu') resolvedAction = 'menu';
+    else if (lowerOut === 'contact_owner') resolvedAction = 'owner';
+    else if (lowerOut === 'contact_admin') resolvedAction = 'admin';
+  }
+
+  if (!resolvedOutput) {
+    const slug = (rawName || 'tombol')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    resolvedOutput = slug || 'menu_item';
+  }
+
+  return {
+    button: {
+      id: rawId,
+      type: 'quick_reply',
+      name: rawName || '👉 Klik Di Sini',
+      output: resolvedOutput,
+      ...(resolvedAction ? { triggerAction: resolvedAction } : {}),
+    },
+    warnings,
+  };
+}
+
+export function simplifyButtonForExport(btn: WhatsAppButton): Record<string, any> {
+  if (btn.mandatory && btn.mandatoryRole) {
+    const shortRole = CANONICAL_ROLE_TO_SIMPLIFIED[btn.mandatoryRole] || btn.mandatoryRole;
+    return {
+      role: shortRole,
+      name: btn.name,
+    };
+  }
+
+  switch (btn.type) {
+    case 'cta_url':
+      return {
+        type: 'url',
+        name: btn.name,
+        url: btn.output || '',
+      };
+    case 'cta_copy':
+      return {
+        type: 'copy',
+        name: btn.name,
+        value: btn.output || '',
+      };
+    case 'cta_call':
+      return {
+        type: 'call',
+        name: btn.name,
+        phone: btn.callPhoneNumber || btn.output || '',
+      };
+    case 'vcard':
+      return {
+        type: 'vcard',
+        name: btn.name,
+        contactName: btn.callTargetName || btn.name,
+        phone: btn.callPhoneNumber || btn.output || '',
+      };
+    case 'cta_reminder':
+    case 'cta_cancel_reminder':
+      return {
+        type: btn.type,
+        name: btn.name,
+        ...(btn.output ? { value: btn.output } : {}),
+      };
+    case 'quick_reply':
+    default: {
+      const action = btn.triggerAction;
+      const out = (btn.output || '').trim();
+      const result: Record<string, any> = {
+        type: 'reply',
+        name: btn.name,
+      };
+      if (action && action !== 'unknown') {
+        result.action = action;
+        if (out && out !== QUICK_REPLY_DEFAULT_OUTPUT[action]) {
+          result.value = out;
+        }
+      } else if (out) {
+        result.value = out;
+      }
+      return result;
+    }
+  }
 }
 
 function hydrateTemplateRow(row: any): MessageTemplateRecord {
@@ -136,7 +481,8 @@ function buildTemplateSignature(input: {
     type: b.type,
     name: String(b.name || '').trim(),
     output: String(b.output || '').trim(),
-    triggerAction: b.triggerAction || undefined,
+    triggerAction:
+      b.triggerAction && b.triggerAction !== 'unknown' ? b.triggerAction : undefined,
     callTargetName: b.callTargetName ? String(b.callTargetName).trim() : undefined,
     callPhoneNumber: b.callPhoneNumber ? String(b.callPhoneNumber).trim() : undefined,
     mandatory: Boolean(b.mandatory),
@@ -340,32 +686,33 @@ export class TemplateService {
           ? item.name.trim()
           : `Paket ${normalizedCat}`;
       const footerText =
-        typeof item.footer_text === 'string' ? item.footer_text.trim() : '';
-      const rawButtons: WhatsAppButton[] = Array.isArray(item.buttons)
-        ? item.buttons
-        : getDefaultButtonsForResponse(normalizedCat);
+        typeof item.footer === 'string'
+          ? item.footer.trim()
+          : typeof item.footer_text === 'string'
+            ? item.footer_text.trim()
+            : '';
 
-      // Deteksi perubahan jika payload JSON mencoba mengubah tipe/output tombol wajib
-      for (const rb of rawButtons) {
-        if (rb && typeof rb === 'object' && rb.mandatoryRole) {
-          const mergedTest = mergeMandatoryButtons(normalizedCat, [rb]);
-          const matchedMerged = mergedTest.find((m) => m.mandatoryRole === rb.mandatoryRole);
-          if (
-            matchedMerged &&
-            ((rb.type && rb.type !== matchedMerged.type) ||
-              (rb.output && rb.output.trim() !== matchedMerged.output))
-          ) {
-            warnings.push(
-              `[${normalizedCat}] Tombol wajib "${rb.mandatoryRole}" otomatis dinormalisasi dari "${rb.type}" ke "${matchedMerged.type}" (${matchedMerged.output}).`
-            );
+      let preparedButtons: WhatsAppButton[];
+      if (Array.isArray(item.buttons)) {
+        preparedButtons = [];
+        for (const rb of item.buttons) {
+          const normalizedRes = normalizeJsonButtonInput(rb, normalizedCat);
+          if (normalizedRes.warnings.length > 0) {
+            warnings.push(...normalizedRes.warnings);
+          }
+          if (normalizedRes.button) {
+            preparedButtons.push(normalizedRes.button);
           }
         }
+      } else {
+        preparedButtons = getDefaultButtonsForResponse(normalizedCat);
       }
 
-      const mergedButtons = mergeMandatoryButtons(normalizedCat, rawButtons);
+      const mergedButtons = mergeMandatoryButtons(normalizedCat, preparedButtons);
+      const rawActive = item.active !== undefined ? item.active : item.is_active;
       const isActive =
-        item.is_active !== undefined
-          ? item.is_active === true || item.is_active === 1
+        rawActive !== undefined
+          ? rawActive === true || rawActive === 1 || rawActive === 'true'
             ? 1
             : 0
           : defaultActive;
@@ -496,7 +843,7 @@ export class TemplateService {
   }
 
   /**
-   * Mengekspor seluruh template menjadi string JSON dengan pemisah 1 baris kosong (Enter) antar kategori.
+   * Mengekspor seluruh template menjadi string JSON sederhana dengan pemisah 1 baris kosong antar kategori.
    */
   static formatTemplatesAsGroupedJson(categoryFilter?: string): {
     jsonText: string;
@@ -506,13 +853,23 @@ export class TemplateService {
     const grouped: Record<string, any> = {};
 
     for (const tpl of list) {
-      const itemObj = {
+      const simplifiedButtons = Array.isArray(tpl.buttons)
+        ? tpl.buttons.map(simplifyButtonForExport)
+        : [];
+      const itemObj: Record<string, any> = {
         name: tpl.name,
         content: tpl.content,
-        footer_text: tpl.footer_text,
-        buttons: tpl.buttons,
-        is_active: tpl.is_active,
       };
+      if (tpl.footer_text) {
+        itemObj.footer = tpl.footer_text;
+      }
+      if (simplifiedButtons.length > 0) {
+        itemObj.buttons = simplifiedButtons;
+      }
+      if (tpl.is_active === 0) {
+        itemObj.active = false;
+      }
+
       if (!grouped[tpl.category]) {
         grouped[tpl.category] = itemObj;
       } else if (Array.isArray(grouped[tpl.category])) {

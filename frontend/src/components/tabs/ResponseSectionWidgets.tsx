@@ -625,12 +625,58 @@ export const ResponseButtonsSection: React.FC<ResponseButtonsSectionProps> = ({
   );
 };
 
-interface ResponseAccordionCardProps {
+export interface ResponseSubTabItem<T extends string = ResponseConfigKey> {
+  key: T;
   indexNumber: number;
+  pillLabel: string;
+}
+
+interface ResponseSubTabPillBarProps<T extends string = ResponseConfigKey> {
+  items: Array<ResponseSubTabItem<T>>;
+  activeKey: T;
+  onSelect: (key: T) => void;
+  ariaLabel: string;
+}
+
+export function ResponseSubTabPillBar<T extends string = ResponseConfigKey>({
+  items,
+  activeKey,
+  onSelect,
+  ariaLabel,
+}: ResponseSubTabPillBarProps<T>) {
+  return (
+    <div
+      role="tablist"
+      aria-label={ariaLabel}
+      className="inline-flex max-w-full overflow-x-auto scrollbar-none items-center gap-1.5 p-1.5 bg-slate-100/90 border border-slate-200/80 rounded-full"
+    >
+      {items.map((item) => {
+        const isActive = item.key === activeKey;
+        return (
+          <button
+            key={item.key}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onSelect(item.key)}
+            className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs transition-all cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084D1]/40 ${
+              isActive
+                ? 'bg-[#0084D1] text-white font-semibold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 font-medium'
+            }`}
+          >
+            <span className="tabular-nums opacity-85">{item.indexNumber}.</span>
+            <span>{item.pillLabel}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export interface ResponseEditorPanelProps {
   title: string;
   description: string;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
   responseKey: ResponseConfigKey;
   extraConfig: ResponseExtraConfig;
   availablePictures: string[];
@@ -656,12 +702,9 @@ interface ResponseAccordionCardProps {
   showToast: (msg: string) => void;
 }
 
-export const ResponseAccordionCard: React.FC<ResponseAccordionCardProps> = ({
-  indexNumber,
+export const ResponseEditorPanel: React.FC<ResponseEditorPanelProps> = ({
   title,
   description,
-  isExpanded,
-  onToggleExpand,
   responseKey,
   extraConfig,
   availablePictures,
@@ -691,146 +734,110 @@ export const ResponseAccordionCard: React.FC<ResponseAccordionCardProps> = ({
   const selectedPicture = extraConfig.selectedPicture || '';
 
   return (
-    <div
-      className={`rounded-xl border transition-colors ${
-        isExpanded
-          ? 'border-[#0084D1]/40 bg-white shadow-2xs'
-          : 'border-slate-200/90 bg-slate-50/40 hover:bg-white'
-      }`}
-    >
-      {/* Header Accordion (Option A) */}
-      <button
-        type="button"
-        aria-expanded={isExpanded}
-        onClick={onToggleExpand}
-        className="w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left cursor-pointer"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <span
-            className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 ${
-              isExpanded
-                ? 'bg-[#0084D1] text-white'
-                : 'bg-slate-200/80 text-slate-700'
-            }`}
-          >
-            {indexNumber}
+    <div role="tabpanel" className="pt-4 border-t border-slate-100 space-y-5">
+      {/* Header Sub-Respon + Metadata Tanpa Pill Statis */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h4 className="text-sm font-semibold text-slate-900">{title}</h4>
+          <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-slate-500 tabular-nums shrink-0">
+          <span className={includeMedia ? 'text-[#0084D1] font-medium' : 'text-slate-500'}>
+            Foto: {includeMedia ? 'ON' : 'OFF'}
           </span>
-          <div className="min-w-0">
-            <h4 className="text-xs sm:text-sm font-semibold text-slate-900 truncate">
-              {title}
-            </h4>
-            <p className="text-[11px] text-slate-500 truncate mt-0.5">
-              {description}
-            </p>
+          <span aria-hidden="true" className="text-slate-300">
+            ·
+          </span>
+          <span>{buttons.length} Tombol</span>
+        </div>
+      </div>
+
+      {/* 1. Saklar & Galeri Foto Per-Respon */}
+      <ResponsePhotoToggle
+        title={`Kirim Foto pada ${title}`}
+        includeMedia={includeMedia}
+        onToggleMedia={(val) => onUpdateExtra({ includeMedia: val })}
+        selectedPicture={selectedPicture}
+        onSelectPicture={(pic) => onUpdateExtra({ selectedPicture: pic })}
+        availablePictures={availablePictures}
+        setAvailablePictures={setAvailablePictures}
+        showToast={showToast}
+      />
+
+      {/* 2. Teks Pesan + Template + Reset */}
+      <div className="space-y-2.5 pt-3 border-t border-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label className="text-xs font-semibold text-slate-800">
+            Teks Pesan
+          </label>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={onOpenTemplate}
+              className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-[#0084D1] text-[#0084D1] hover:text-white border border-sky-200 hover:border-transparent text-xs font-semibold transition-all shadow-2xs cursor-pointer active:scale-95"
+            >
+              <LayoutTemplate className="w-3.5 h-3.5" />
+              <span>Pilih Template</span>
+            </button>
+            <button
+              type="button"
+              onClick={onResetDefault}
+              className="whitespace-nowrap text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+            >
+              Reset Default
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="hidden sm:flex items-center gap-2 text-[11px] font-medium text-slate-500 tabular-nums">
-            <span className={includeMedia ? 'text-[#0084D1] font-semibold' : 'text-slate-400'}>
-              Foto: {includeMedia ? 'ON' : 'OFF'}
-            </span>
-            <span aria-hidden="true" className="text-slate-300">
-              /
-            </span>
-            <span>Tombol: {buttons.length}</span>
-          </div>
-          <div className="p-1 rounded-lg bg-slate-100 text-slate-500">
-            {isExpanded ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
-          </div>
-        </div>
-      </button>
+        <textarea
+          rows={textRows}
+          value={textValue}
+          onChange={(e) => onChangeText(e.target.value)}
+          placeholder={textPlaceholder}
+          className="w-full bg-slate-50/60 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0084D1] focus:ring-2 focus:ring-[#0084D1]/15 transition font-mono leading-relaxed"
+        />
 
-      {/* Body Accordion */}
-      {isExpanded && (
-        <div className="px-4 pb-4 pt-3 border-t border-slate-100 space-y-4">
-          {/* 1. Saklar & Galeri Foto Per-Respon */}
-          <ResponsePhotoToggle
-            title={`Kirim Foto pada ${title}`}
-            includeMedia={includeMedia}
-            onToggleMedia={(val) => onUpdateExtra({ includeMedia: val })}
-            selectedPicture={selectedPicture}
-            onSelectPicture={(pic) => onUpdateExtra({ selectedPicture: pic })}
-            availablePictures={availablePictures}
-            setAvailablePictures={setAvailablePictures}
-            showToast={showToast}
+        <CollapsibleVariableChips
+          tags={variableTags}
+          onInsert={onInsertVariable}
+        />
+      </div>
+
+      {/* 3. Teks Footer */}
+      <div className="space-y-2 pt-3 border-t border-slate-100">
+        <label className="text-xs font-semibold text-slate-800 block">
+          {footerLabel}
+        </label>
+        <input
+          type="text"
+          value={footerValue}
+          onChange={(e) => onChangeFooter(e.target.value)}
+          placeholder={footerPlaceholder}
+          className="w-full bg-slate-50/60 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0084D1] focus:ring-2 focus:ring-[#0084D1]/15 transition"
+        />
+        {buttons.length === 0 && (
+          <p className="text-[11px] text-slate-400">
+            Footer otomatis disertakan hanya jika respon ini memiliki minimal 1 tombol interaktif.
+          </p>
+        )}
+        {onInsertFooterVariable && (
+          <CollapsibleVariableChips
+            compact
+            label="Variabel Footer"
+            tags={footerVariableTags}
+            onInsert={onInsertFooterVariable}
           />
+        )}
+      </div>
 
-          {/* 2. Teks Pesan + Template + Reset */}
-          <div className="space-y-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="text-xs font-semibold text-slate-800">
-                Teks Pesan
-              </label>
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={onOpenTemplate}
-                  className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-[#0084D1] text-[#0084D1] hover:text-white border border-sky-200 hover:border-transparent text-xs font-semibold transition-all shadow-2xs cursor-pointer active:scale-95"
-                >
-                  <LayoutTemplate className="w-3.5 h-3.5" />
-                  <span>Pilih Template</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={onResetDefault}
-                  className="whitespace-nowrap text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
-                >
-                  Reset Default
-                </button>
-              </div>
-            </div>
-
-            <textarea
-              rows={textRows}
-              value={textValue}
-              onChange={(e) => onChangeText(e.target.value)}
-              placeholder={textPlaceholder}
-              className="w-full bg-slate-50/60 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0084D1] focus:ring-2 focus:ring-[#0084D1]/15 transition font-mono leading-relaxed"
-            />
-
-            <CollapsibleVariableChips
-              tags={variableTags}
-              onInsert={onInsertVariable}
-            />
-          </div>
-
-          {/* 3. Teks Footer */}
-          <div className="space-y-2 pt-2 border-t border-slate-100">
-            <label className="text-xs font-semibold text-slate-800 block">
-              {footerLabel}
-            </label>
-            <input
-              type="text"
-              value={footerValue}
-              onChange={(e) => onChangeFooter(e.target.value)}
-              placeholder={footerPlaceholder}
-              className="w-full bg-slate-50/60 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-mono placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0084D1] focus:ring-2 focus:ring-[#0084D1]/15 transition"
-            />
-            {onInsertFooterVariable && (
-              <CollapsibleVariableChips
-                compact
-                label="Variabel Footer"
-                tags={footerVariableTags}
-                onInsert={onInsertFooterVariable}
-              />
-            )}
-          </div>
-
-          {/* 4. Tombol Interaktif Per-Respon */}
-          <ResponseButtonsSection
-            responseKey={responseKey}
-            buttons={buttons}
-            onAddButton={onAddButton}
-            onEditButton={onEditButton}
-            onDeleteButton={onDeleteButton}
-          />
-        </div>
-      )}
+      {/* 4. Tombol Interaktif Per-Respon */}
+      <ResponseButtonsSection
+        responseKey={responseKey}
+        buttons={buttons}
+        onAddButton={onAddButton}
+        onEditButton={onEditButton}
+        onDeleteButton={onDeleteButton}
+      />
     </div>
   );
 };

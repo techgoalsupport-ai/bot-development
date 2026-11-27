@@ -1,6 +1,6 @@
 # Panduan Instalasi & Deployment VPS (Full-Stack Node.js 22 + PM2 + Nginx + SSL)
 
-Panduan ini disusun sesuai arsitektur terbaru **Wanzt Store** (Multi-Tenant WhatsApp Bot + Master Admin Dashboard), di mana satu server full-stack (`server.ts`) berjalan pada **Port 3000** menggunakan **Node.js 22 LTS** dan **PM2**, lalu dipublikasikan ke internet melalui **Nginx Reverse Proxy** + **HTTPS Certbot** dengan pemisahan domain antara **Dashboard Bot/Toko** dan **Dashboard Master Admin**.
+Panduan ini disusun sesuai arsitektur terbaru **Wanzt Store** (Multi-Tenant WhatsApp Bot + Master Admin Dashboard), di mana satu server full-stack (`server.ts`) berjalan pada **Port 3000** menggunakan **Node.js 22 LTS** dan **PM2**, lalu dipublikasikan ke internet melalui **Nginx Reverse Proxy** + **HTTPS Certbot** dengan pemisahan domain antara **Dashboard Bot/Toko**, **Dashboard Master Admin**, dan **Halaman Dokumentasi Publik (`/docs`)**.
 
 ---
 
@@ -11,7 +11,7 @@ Panduan ini disusun sesuai arsitektur terbaru **Wanzt Store** (Multi-Tenant What
 4. [Langkah 3: Upload Proyek & Konfigurasi `.env`](#4-langkah-3-upload-proyek--konfigurasi-env)
 5. [Langkah 4: Install Dependensi & Build Kedua Frontend](#5-langkah-4-install-dependensi--build-kedua-frontend)
 6. [Langkah 5: Jalankan Server via PM2](#6-langkah-5-jalankan-server-via-pm2)
-7. [Langkah 6: Konfigurasi Nginx (Pemisahan Domain Toko & Admin)](#7-langkah-6-konfigurasi-nginx-pemisahan-domain-toko--admin)
+7. [Langkah 6: Konfigurasi Nginx (Pemisahan Domain Toko, Admin, & Dokumentasi)](#7-langkah-6-konfigurasi-nginx-pemisahan-domain-toko-admin--dokumentasi)
 8. [Langkah 7: Buka Firewall UFW & Pasang SSL HTTPS (Certbot)](#8-langkah-7-buka-firewall-ufw--pasang-ssl-https-certbot)
 9. [Langkah 8: Login Pertama Kali & Setup Bot](#9-langkah-8-login-pertama-kali--setup-bot)
 10. [Manajemen Harian, Update Tampilan Frontend & Troubleshooting](#10-manajemen-harian-update-tampilan-frontend--troubleshooting)
@@ -20,9 +20,14 @@ Panduan ini disusun sesuai arsitektur terbaru **Wanzt Store** (Multi-Tenant What
 
 ## 1. Arsitektur & Pemisahan Domain
 
-Contoh pembagian domain (ganti `domainanda.com` dengan domain Anda sendiri):
-- **`domainanda.com`** -> Halaman **Dashboard Web Toko / Bot WhatsApp** (Tenant). Akses ke `/admin` dan `/api/admin` diblokir `404` oleh Nginx.
+Contoh pembagian domain (ganti `domainanda.com`, misalnya `testbot.web.id`, dengan domain Anda sendiri):
+- **`domainanda.com`** -> Halaman **Dashboard Web Toko / Bot WhatsApp** (Tenant).
+  - `/docs` menampilkan **hanya dokumentasi format JSON Template Pesan** (tanpa REST API Partner).
+  - Akses ke `/admin` diarahkan kembali (`302`) ke halaman utama `/`.
+  - Akses ke `/api/admin/*` dan `/api/v1/partner/*` ditolak `404` oleh Nginx maupun backend Express.
 - **`admin.domainanda.com`** -> Halaman **Dashboard Master Admin** (Kelola Tenant, Token, Broadcast, Template, Partner API).
+  - `/docs` menampilkan **dokumentasi lengkap JSON Template Pesan & REST API Partner** tanpa perlu login.
+  - Endpoint REST API Partner (`/api/v1/partner/*`) dan API Admin (`/api/admin/*`) hanya aktif pada domain ini.
 
 Kedua domain tersebut dilayani oleh satu proses Express di `http://127.0.0.1:3000` (`server.ts`), yang menyajikan:
 - Build Web Toko dari `frontend/dist/` (atau `dist/`)
@@ -91,6 +96,12 @@ PORT=3000
 
 CORS_ORIGINS=https://domainanda.com,https://admin.domainanda.com
 
+# Pemisahan Domain Resmi (Wajib diisi pada deployment 2 domain VPS)
+TENANT_PUBLIC_URL=https://domainanda.com
+ADMIN_PUBLIC_URL=https://admin.domainanda.com
+VITE_PARTNER_API_BASE_URL=https://admin.domainanda.com
+VITE_TENANT_PUBLIC_URL=https://domainanda.com
+
 ADMIN_BOOTSTRAP_USERNAME=superadmin
 ADMIN_BOOTSTRAP_PASSWORD=PasswordMasterAdminKuat123!
 
@@ -98,7 +109,10 @@ TENANT_BOOTSTRAP_USERNAME=owner_toko
 TENANT_BOOTSTRAP_PASSWORD=PasswordTenantKuat123!
 ```
 
-> **Penting**: Kredensial `*_BOOTSTRAP_*` hanya dipakai saat database `database/master.db` pertama kali dibuat (masih kosong).
+> **Penting**:
+> 1. `TENANT_PUBLIC_URL` dan `ADMIN_PUBLIC_URL` membuat backend mengunci `/api/admin/*` serta `/api/v1/partner/*` agar hanya merespons di `admin.domainanda.com` dan tidak dapat diakses dari `https://domainanda.com/`.
+> 2. Kredensial `*_BOOTSTRAP_*` hanya dipakai saat database `database/master.db` pertama kali dibuat (masih kosong).
+> 3. Jika password mengandung karakter `#` (misalnya `Pass#123`), **wajib dibungkus tanda kutip ganda** seperti `ADMIN_BOOTSTRAP_PASSWORD="Pass#123"` agar tidak dianggap komentar oleh parser `--env-file=.env` milik Node.js.
 
 ---
 
@@ -118,6 +132,8 @@ npm run build
 # 3. Build Frontend Dashboard Master Admin (WAJIB dijalankan, menghasilkan dist-admin/)
 npx vite build --config admin-frontend/vite.config.ts
 ```
+
+> **Catatan Build Vite & `.env`**: Karena variabel `VITE_PARTNER_API_BASE_URL` dan `VITE_TENANT_PUBLIC_URL` dibaca saat build frontend, pastikan `.env` sudah diisi **sebelum** menjalankan perintah build di atas (atau jalankan build ulang setiap kali mengubah variabel `VITE_*`).
 
 Pastikan folder `dist/`, `frontend/dist/`, dan `dist-admin/` masing-masing berisi `index.html`:
 
@@ -159,7 +175,7 @@ Output yang sehat akan menampilkan:
 
 ---
 
-## 7. Langkah 6: Konfigurasi Nginx (Pemisahan Domain Toko & Admin)
+## 7. Langkah 6: Konfigurasi Nginx (Pemisahan Domain Toko, Admin, & Dokumentasi)
 
 Buat konfigurasi virtual host Nginx baru:
 
@@ -170,19 +186,27 @@ nano /etc/nginx/sites-available/wanzt-bot
 Masukkan konfigurasi berikut (ganti `domainanda.com` dan `admin.domainanda.com` sesuai domain Anda):
 
 ```nginx
-# 1. Domain Tenant / Web Toko -> Blokir /admin & /api/admin dengan 404
+# 1. Domain Tenant / Web Toko
+# - /admin* diarahkan kembali ke halaman utama /
+# - /api/admin* dan /api/v1/partner* ditolak 404
+# - /docs menampilkan dokumentasi JSON Template saja (otomatis dari frontend tenant)
 server {
     listen 80;
     server_name domainanda.com;
 
     client_max_body_size 50M;
 
-    # Tolak akses panel Master Admin dari domain toko
+    # Lempar kembali akses /admin ke halaman utama tenant
     location ^~ /admin {
+        return 302 /;
+    }
+
+    # Blokir API Master Admin & API Partner di domain tenant
+    location ^~ /api/admin {
         return 404;
     }
 
-    location ^~ /api/admin {
+    location ^~ /api/v1/partner {
         return 404;
     }
 
@@ -200,14 +224,17 @@ server {
     }
 }
 
-# 2. Subdomain Khusus Master Admin
+# 2. Subdomain Khusus Master Admin & Partner API
+# - / menyajikan Dashboard Master Admin
+# - /docs menyajikan dokumentasi lengkap JSON Template & REST API Partner
+# - /api/admin/* dan /api/v1/partner/* aktif di domain ini
 server {
     listen 80;
     server_name admin.domainanda.com;
 
     client_max_body_size 50M;
 
-    # Arahkan root "/" langsung ke Master Admin di backend (URL browser tetap "/")
+    # Arahkan root "/" ke /admin/ di backend agar URL browser tetap "/"
     location = / {
         proxy_pass http://127.0.0.1:3000/admin/;
         proxy_http_version 1.1;
@@ -278,6 +305,9 @@ Ikuti petunjuk di terminal (masukkan email & setujui ToS). Certbot akan otomatis
    - Login dengan `TENANT_BOOTSTRAP_USERNAME` & `TENANT_BOOTSTRAP_PASSWORD` (atau buat akun tenant baru dari Master Admin).
    - Isi modal **Store Info** (Nama Toko, Nama Owner, Nomor WhatsApp Owner).
    - Masuk ke tab **Connection** untuk menghubungkan WhatsApp (Pairing Code) dan mengisi kredensial Payment Gateway (jika memakai LunasQRIS, atur Webhook URL ke `https://domainanda.com/api/lunasqris/webhook`).
+3. **Dokumentasi Publik (Tanpa Login)**:
+   - Untuk Tenant (khusus panduan JSON Template Pesan): `https://domainanda.com/docs`
+   - Untuk Master Admin & Partner Reseller (JSON Template + REST API Partner): `https://admin.domainanda.com/docs`
 
 ---
 
@@ -294,12 +324,12 @@ Ikuti petunjuk di terminal (masukkan email & setujui ToS). Certbot akan otomatis
 
 ### Jika Mengubah Kode Tampilan Frontend (Tanpa Mengulang dari Awal)
 Karena server produksi menyajikan file statis hasil build (`frontend/dist/` dan `dist-admin/`), mengedit file `.tsx` saja lalu refresh browser belum akan mengubah tampilan sebelum di-build ulang:
-- Jika mengubah file di **`frontend/src/...`**:
+- Jika mengubah file di **`frontend/src/...`** atau **`shared/...`**:
   ```bash
   cd /root/wanzt-bot && npm run build
   ```
   Lalu refresh browser (`Ctrl + Shift + R`). Tidak perlu restart PM2.
-- Jika mengubah file di **`admin-frontend/src/...`**:
+- Jika mengubah file di **`admin-frontend/src/...`** atau **`shared/...`**:
   ```bash
   cd /root/wanzt-bot && npx vite build --config admin-frontend/vite.config.ts
   ```
@@ -313,6 +343,8 @@ Karena server produksi menyajikan file statis hasil build (`frontend/dist/` dan 
 1. **`npm warn EBADENGINE` / `better-sqlite3` gagal load karena versi Node**:
    Pastikan `node -v` minimal `v22.x.x`. Jika sebelumnya sempat menjalankan PM2 dengan Node 20, jalankan `pm2 kill`, install ulang `rm -rf node_modules && npm install --legacy-peer-deps`, lalu start ulang PM2.
 2. **Membuka `admin.domainanda.com` malah masuk ke Dashboard Web Toko**:
-   Pastikan `npx vite build --config admin-frontend/vite.config.ts` sudah dijalankan sehingga folder `dist-admin/index.html` ada, dan cek bahwa blok Nginx `admin.domainanda.com` memproksi `location = /` ke `http://127.0.0.1:3000/admin/`.
-3. **Situs tidak bisa diakses dari HP / jaringan seluler, tapi bisa dari laptop**:
+   Pastikan `npx vite build --config admin-frontend/vite.config.ts` sudah dijalankan sehingga folder `dist-admin/index.html` ada, `ADMIN_PUBLIC_URL` sudah diisi di `.env`, dan blok Nginx `admin.domainanda.com` memproksi `location = /` ke `http://127.0.0.1:3000/admin/`.
+3. **Request `/api/v1/partner/*` atau `/api/admin/*` mengembalikan `404` pada domain toko**:
+   Ini perilaku normal sesuai keamanan pemisahan domain. Pastikan client/reseller menembak endpoint Partner API ke **`https://admin.domainanda.com/api/v1/partner/...`**, bukan ke domain toko tenant (`https://domainanda.com`).
+4. **Situs tidak bisa diakses dari HP / jaringan seluler, tapi bisa dari laptop**:
    Biasanya disebabkan cache DNS ISP/HP saat domain baru diubah, atau IPv6 (`AAAA` record) di DNS masih mengarah ke server lama padahal VPS hanya memakai IPv4. Hapus `AAAA` record jika VPS tidak memakai IPv6, lalu pastikan propagasi DNS sudah merata.

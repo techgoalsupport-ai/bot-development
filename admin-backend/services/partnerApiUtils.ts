@@ -192,3 +192,125 @@ export class SlidingWindowRateLimiter {
     this.hits.clear();
   }
 }
+
+/**
+ * Normalisasi header Host / hostname (hapus port dan lowercase).
+ */
+export function normalizeHostHeader(rawHost?: string | string[] | null): string {
+  const first = Array.isArray(rawHost) ? rawHost[0] : rawHost;
+  if (!first || typeof first !== 'string') return '';
+  const trimmed = first.split(',')[0].trim().toLowerCase();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('[')) {
+    const closingIdx = trimmed.indexOf(']');
+    return closingIdx > 0 ? trimmed.slice(1, closingIdx) : trimmed;
+  }
+  return trimmed.replace(/:\d+$/, '');
+}
+
+/**
+ * Ambil daftar hostname bersih dari variabel env berupa URL atau host dipisah koma.
+ */
+export function parseHostListEnv(value?: string | null): string[] {
+  if (!value || typeof value !== 'string') return [];
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      try {
+        if (/^https?:\/\//i.test(item)) {
+          return new URL(item).hostname.toLowerCase();
+        }
+      } catch {}
+      return normalizeHostHeader(item.replace(/\/.*$/, ''));
+    })
+    .filter(Boolean);
+}
+
+/**
+ * Periksa apakah host berasal dari lingkungan development/preview lokal (localhost atau *.run.app)
+ * agar akses /admin dan /api/admin/* tetap lancar saat pengembangan.
+ */
+export function isDevelopmentPreviewHost(rawHost?: string | string[] | null): boolean {
+  const reqHost = normalizeHostHeader(rawHost);
+  if (!reqHost) return false;
+  return (
+    reqHost === 'localhost' ||
+    reqHost === '127.0.0.1' ||
+    reqHost === '::1' ||
+    reqHost.endsWith('.run.app')
+  );
+}
+
+/**
+ * Periksa apakah request ke endpoint Admin (/api/admin/*) atau Partner API (/api/v1/partner/*)
+ * diizinkan berdasarkan domain pemisah (ADMIN_HOST / ADMIN_PUBLIC_URL vs TENANT_PUBLIC_URL).
+ * Jika tidak ada env pemisahan domain yang diset atau request datang dari host dev/preview lokal, kembalikan true.
+ */
+export function isAdminRequestHostAllowed(options: {
+  requestHost?: string | string[] | null;
+  adminHostEnv?: string;
+  adminPublicUrlEnv?: string;
+  tenantPublicUrlEnv?: string;
+}): boolean {
+  const configuredAdminHosts = Array.from(
+    new Set([
+      ...parseHostListEnv(options.adminHostEnv),
+      ...parseHostListEnv(options.adminPublicUrlEnv),
+    ]),
+  );
+  const configuredTenantHosts = parseHostListEnv(options.tenantPublicUrlEnv);
+
+  if (configuredAdminHosts.length === 0 && configuredTenantHosts.length === 0) {
+    return true;
+  }
+
+  const reqHost = normalizeHostHeader(options.requestHost);
+  if (!reqHost) return false;
+
+  if (!configuredTenantHosts.includes(reqHost) && isDevelopmentPreviewHost(reqHost)) {
+    return true;
+  }
+
+  if (configuredAdminHosts.length > 0) {
+    return configuredAdminHosts.includes(reqHost);
+  }
+
+  if (configuredTenantHosts.includes(reqHost) && !reqHost.startsWith('admin.')) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Tentukan login_url dashboard tenant untuk respons Partner API (`tenants/create`).
+ * Mengutamakan env TENANT_PUBLIC_URL; jika kosong dan request masuk via subdomain admin.*,
+ * otomatis menghapus prefiks `admin.` agar pembeli diarahkan ke domain dashboard tenant.
+ */
+export function resolveTenantPublicLoginUrl(options: {
+  tenantPublicUrlEnv?: string;
+  requestHost?: string | string[] | null;
+  protocol?: string;
+}): string {
+  const rawEnv = (options.tenantPublicUrlEnv || '').trim();
+  if (rawEnv) {
+    const cleanBase = rawEnv.replace(/\/+$/, '');
+    if (/^https?:\/\//i.test(cleanBase)) {
+      return `${cleanBase}/`;
+    }
+    return `https://${cleanBase}/`;
+  }
+
+  const rawHost = Array.isArray(options.requestHost)
+    ? options.requestHost[0]
+    : options.requestHost;
+  const cleanHost = (rawHost || '').split(',')[0].trim();
+  if (!cleanHost) return '/';
+
+  const proto = ((options.protocol || 'https').split(',')[0].trim() || 'https').replace(/:$/, '');
+  const hostForTenant = cleanHost.replace(/^admin\./i, '');
+  return `${proto}://${hostForTenant}/`;
+}
+

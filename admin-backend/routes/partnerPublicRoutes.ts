@@ -142,10 +142,6 @@ partnerPublicRouter.post('/tenants/create', (req: AuthenticatedPartnerRequest, r
       requestIp: req.clientIp || 'unknown',
     });
 
-    const host = req.get('host');
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-    const loginUrl = host ? `${protocol}://${host}/` : '/';
-
     return res.status(201).json({
       success: true,
       message: 'Akun tenant bot WhatsApp berhasil dibuat otomatis.',
@@ -159,7 +155,6 @@ partnerPublicRouter.post('/tenants/create', (req: AuthenticatedPartnerRequest, r
         duration_label: durationResult.label,
         days_active: created.days_remaining ?? durationResult.amount,
         expires_at: created.expires_at,
-        login_url: loginUrl,
         guide: 'Login ke dashboard menggunakan username & password di atas, lalu lengkapi profil toko dan sambungkan nomor WhatsApp bot.',
       },
     });

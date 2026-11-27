@@ -13,6 +13,7 @@ import {
   MousePointerClick,
   FileJson,
   Download,
+  BookOpen,
 } from 'lucide-react';
 import {
   MessageTemplate,
@@ -49,9 +50,22 @@ const CATEGORY_TABS: { id: string; label: string; countBadge?: number }[] = [
   { id: 'contact_owner_empty', label: 'Owner Kosong' },
   { id: 'contact_admin_empty', label: 'Admin Kosong' },
   { id: 'expiry_warning_owner', label: 'Peringatan Sewa' },
+  { id: 'kick_anti_kudeta', label: 'Kudeta Grup' },
+  { id: 'kick_bot_not_admin', label: 'Kick: Bot Bukan Admin' },
+  { id: 'kick_success', label: 'Berhasil Kick' },
+  { id: 'open_bot_not_admin', label: 'Open: Bot Bukan Admin' },
+  { id: 'open_already', label: 'Grup Sudah Terbuka' },
+  { id: 'open_success', label: 'Berhasil Buka Grup' },
+  { id: 'close_bot_not_admin', label: 'Close: Bot Bukan Admin' },
+  { id: 'close_already', label: 'Grup Sudah Ditutup' },
+  { id: 'close_success', label: 'Berhasil Tutup Grup' },
 ];
 
 export const TabTemplates: React.FC<TabTemplatesProps> = () => {
+  const publicJsonDocsHref =
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/')
+      ? '/admin/docs?tab=json'
+      : '/docs?tab=json';
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -332,6 +346,51 @@ export const TabTemplates: React.FC<TabTemplatesProps> = () => {
           label: 'Peringatan Sewa',
           className: 'bg-red-50 text-red-700 border-red-200',
         };
+      case 'kick_anti_kudeta':
+        return {
+          label: 'Kudeta Grup',
+          className: 'bg-rose-50 text-rose-700 border-rose-200',
+        };
+      case 'kick_bot_not_admin':
+        return {
+          label: 'Kick: Bot Bukan Admin',
+          className: 'bg-amber-50 text-amber-700 border-amber-200',
+        };
+      case 'kick_success':
+        return {
+          label: 'Berhasil Kick',
+          className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        };
+      case 'open_bot_not_admin':
+        return {
+          label: 'Open: Bot Bukan Admin',
+          className: 'bg-amber-50 text-amber-700 border-amber-200',
+        };
+      case 'open_already':
+        return {
+          label: 'Grup Sudah Terbuka',
+          className: 'bg-sky-50 text-sky-700 border-sky-200',
+        };
+      case 'open_success':
+        return {
+          label: 'Berhasil Buka Grup',
+          className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        };
+      case 'close_bot_not_admin':
+        return {
+          label: 'Close: Bot Bukan Admin',
+          className: 'bg-amber-50 text-amber-700 border-amber-200',
+        };
+      case 'close_already':
+        return {
+          label: 'Grup Sudah Ditutup',
+          className: 'bg-slate-100 text-slate-700 border-slate-200',
+        };
+      case 'close_success':
+        return {
+          label: 'Berhasil Tutup Grup',
+          className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        };
       default:
         return {
           label: category,
@@ -363,6 +422,17 @@ export const TabTemplates: React.FC<TabTemplatesProps> = () => {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+
+          <a
+            href={publicJsonDocsHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold shadow-2xs transition whitespace-nowrap shrink-0"
+            title="Buka Dokumentasi Publik Format JSON Template"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-[#0084D1]" />
+            <span>Panduan JSON</span>
+          </a>
 
           <button
             type="button"

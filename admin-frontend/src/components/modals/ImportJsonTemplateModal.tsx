@@ -13,8 +13,8 @@ import { TemplateCategory, WhatsAppButton } from '../../types/admin.types.ts';
 import {
   ALL_IMPORTABLE_CATEGORIES,
   buildSampleMultiCategoryJson,
-  getDefaultButtonsForCategory,
   mergeMandatoryButtonsForCategory,
+  normalizeJsonButtonsList,
 } from '../../utils/templateButtons.ts';
 
 interface ImportJsonTemplateModalProps {
@@ -98,28 +98,22 @@ export const ImportJsonTemplateModal: React.FC<ImportJsonTemplateModalProps> = (
         throw new Error(`Field "content" pada kategori "${normalizedCat}" wajib diisi.`);
       }
 
-      const rawButtons: WhatsAppButton[] = Array.isArray(entry.buttons)
-        ? entry.buttons
-        : getDefaultButtonsForCategory(normalizedCat);
-      const itemWarnings: string[] = [];
-
-      for (const rb of rawButtons) {
-        if (rb && typeof rb === 'object' && rb.mandatoryRole) {
-          const checkMerged = mergeMandatoryButtonsForCategory(normalizedCat, [rb as WhatsAppButton]);
-          const official = checkMerged.find((m) => m.mandatoryRole === rb.mandatoryRole);
-          if (
-            official &&
-            ((rb.type && rb.type !== official.type) ||
-              (rb.output && String(rb.output).trim() !== official.output))
-          ) {
-            const msg = `[${normalizedCat}] Tombol wajib "${rb.mandatoryRole}" dikunci sistem ke tipe "${official.type}" (${official.output}); hanya nama "${rb.name || official.name}" yang dipakai.`;
-            itemWarnings.push(msg);
-            warnings.push(msg);
-          }
-        }
+      const { buttons: normalizedButtons, warnings: itemWarnings } = normalizeJsonButtonsList(
+        entry.buttons,
+        normalizedCat,
+      );
+      if (itemWarnings.length > 0) {
+        warnings.push(...itemWarnings);
       }
 
-      const mergedButtons = mergeMandatoryButtonsForCategory(normalizedCat, rawButtons);
+      const mergedButtons = mergeMandatoryButtonsForCategory(normalizedCat, normalizedButtons);
+      const footerVal =
+        typeof entry.footer === 'string'
+          ? entry.footer.trim()
+          : typeof entry.footer_text === 'string'
+            ? entry.footer_text.trim()
+            : '';
+
       items.push({
         category: normalizedCat,
         name:
@@ -127,7 +121,7 @@ export const ImportJsonTemplateModal: React.FC<ImportJsonTemplateModalProps> = (
             ? entry.name.trim()
             : `Paket ${normalizedCat}`,
         content,
-        footer_text: typeof entry.footer_text === 'string' ? entry.footer_text.trim() : '',
+        footer_text: footerVal,
         buttons: mergedButtons,
         warnings: itemWarnings,
       });
@@ -381,7 +375,7 @@ export const ImportJsonTemplateModal: React.FC<ImportJsonTemplateModalProps> = (
         {/* Footer */}
         <div className="px-4 sm:px-5 py-3.5 border-t border-slate-100 bg-slate-50/60 flex items-center justify-end sm:justify-between gap-3 shrink-0">
           <p className="hidden sm:block text-[11px] text-slate-500">
-            Tombol wajib sistem otomatis dipertahankan saat disimpan.
+            Mendukung format ringkas (footer, type: reply/url/copy/call, action, role) &amp; format lama.
           </p>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button

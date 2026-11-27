@@ -10,9 +10,14 @@ export interface TransactionRecord {
   customerName: string;
   productName: string;
   variantName: string;
+  category: string;
   nominal: number;
   uniqueCode: number;
   total: number;
+  sellingPrice: number;
+  costPrice: number;
+  discountAmount: number;
+  profit: number;
   status: 'pending' | 'paid' | 'cancel';
   paymentUrl?: string;
   promoId?: number | null;
@@ -26,6 +31,13 @@ export interface TransactionSummary {
   pendingCount: number;
   cancelCount: number;
   totalRevenue: number;
+  totalProfit: number;
+  revenue7d: number;
+  prevRevenue7d: number;
+  revenueChangePercent: number;
+  profit7d: number;
+  paidCount7d: number;
+  margin7dPercent: number;
 }
 
 interface DbTransactionRow {
@@ -36,9 +48,14 @@ interface DbTransactionRow {
   customer_name: string | null;
   product_name: string;
   variant_name: string;
+  category?: string | null;
   nominal: number;
   unique_code: number;
   total: number;
+  selling_price?: number | null;
+  cost_price?: number | null;
+  discount_amount?: number | null;
+  profit?: number | null;
   status: string;
   payment_url: string | null;
   promo_id: number | null;
@@ -58,7 +75,41 @@ function sanitizeHttpsPaymentUrl(rawUrl?: string | null): string {
   }
 }
 
+function computeTransactionProfit(params: {
+  nominal: number;
+  sellingPrice?: number | null;
+  costPrice?: number | null;
+  discountAmount?: number | null;
+}): {
+  sellingPrice: number;
+  costPrice: number;
+  discountAmount: number;
+  profit: number;
+} {
+  const nominal = Math.max(0, Math.round(Number(params.nominal) || 0));
+  const costPrice = Math.max(0, Math.round(Number(params.costPrice) || 0));
+  const discountAmount = Math.max(0, Math.round(Number(params.discountAmount) || 0));
+  const sellingPrice = Math.max(
+    0,
+    Math.round(Number(params.sellingPrice) || (nominal + discountAmount))
+  );
+  const profit = costPrice > 0 ? Math.max(0, sellingPrice - costPrice - discountAmount) : 0;
+  return { sellingPrice, costPrice, discountAmount, profit };
+}
+
 function mapRowToRecord(row: DbTransactionRow): TransactionRecord {
+  const nominal = Number(row.nominal) || 0;
+  const costPrice = Number(row.cost_price) || 0;
+  const discountAmount = Number(row.discount_amount) || 0;
+  const sellingPrice = Number(row.selling_price) || (nominal + discountAmount);
+  const storedProfit = row.profit !== null && row.profit !== undefined ? Number(row.profit) : null;
+  const profit =
+    storedProfit !== null && Number.isFinite(storedProfit)
+      ? storedProfit
+      : costPrice > 0
+      ? Math.max(0, sellingPrice - costPrice - discountAmount)
+      : 0;
+
   return {
     id: row.id,
     orderId: row.order_id,
@@ -67,9 +118,14 @@ function mapRowToRecord(row: DbTransactionRow): TransactionRecord {
     customerName: row.customer_name || `Pelanggan-${row.customer_number.slice(-4)}`,
     productName: row.product_name,
     variantName: row.variant_name,
-    nominal: Number(row.nominal),
+    category: (row.category || '').trim(),
+    nominal,
     uniqueCode: Number(row.unique_code),
     total: Number(row.total),
+    sellingPrice,
+    costPrice,
+    discountAmount,
+    profit,
     status: (row.status as any) || 'pending',
     paymentUrl: sanitizeHttpsPaymentUrl(row.payment_url),
     promoId: row.promo_id ?? null,
@@ -105,9 +161,13 @@ export function recordTransaction(data: {
   customerName?: string;
   productName: string;
   variantName: string;
+  category?: string;
   nominal: number;
   uniqueCode: number;
   total: number;
+  sellingPrice?: number;
+  costPrice?: number;
+  discountAmount?: number;
   paymentUrl?: string;
   promoId?: number | null;
   status?: 'pending' | 'paid' | 'cancel';
@@ -118,7 +178,14 @@ export function recordTransaction(data: {
   const status = data.status || 'pending';
   const promoId = data.promoId ? Number(data.promoId) : null;
   const customerName = data.customerName || `Pelanggan-${cleanNumber.slice(-4)}`;
+  const category = (data.category || '').trim();
   const safePaymentUrl = sanitizeHttpsPaymentUrl(data.paymentUrl);
+  const financials = computeTransactionProfit({
+    nominal: data.nominal,
+    sellingPrice: data.sellingPrice,
+    costPrice: data.costPrice,
+    discountAmount: data.discountAmount,
+  });
 
   try {
     const existing = db.prepare(`
@@ -134,9 +201,14 @@ export function recordTransaction(data: {
             customer_name = ?,
             product_name = ?,
             variant_name = ?,
+            category = CASE WHEN ? != '' THEN ? ELSE category END,
             nominal = ?,
             unique_code = ?,
             total = ?,
+            selling_price = ?,
+            cost_price = ?,
+            discount_amount = ?,
+            profit = ?,
             status = ?,
             payment_url = ?,
             promo_id = COALESCE(?, promo_id),
@@ -148,9 +220,15 @@ export function recordTransaction(data: {
         customerName,
         data.productName,
         data.variantName,
+        category,
+        category,
         Math.round(data.nominal),
         Math.round(data.uniqueCode),
         Math.round(data.total),
+        financials.sellingPrice,
+        financials.costPrice,
+        financials.discountAmount,
+        financials.profit,
         status,
         safePaymentUrl || sanitizeHttpsPaymentUrl(existing.payment_url),
         promoId,
@@ -166,9 +244,14 @@ export function recordTransaction(data: {
         customerName,
         productName: data.productName,
         variantName: data.variantName,
+        category: category || (existing.category || '').trim(),
         nominal: Math.round(data.nominal),
         uniqueCode: Math.round(data.uniqueCode),
         total: Math.round(data.total),
+        sellingPrice: financials.sellingPrice,
+        costPrice: financials.costPrice,
+        discountAmount: financials.discountAmount,
+        profit: financials.profit,
         status,
         paymentUrl: safePaymentUrl || sanitizeHttpsPaymentUrl(existing.payment_url),
         promoId: promoId ?? existing.promo_id ?? null,
@@ -179,9 +262,10 @@ export function recordTransaction(data: {
       db.prepare(`
         INSERT INTO transactions (
           id, order_id, trx_id, customer_number, customer_name,
-          product_name, variant_name, nominal, unique_code, total,
+          product_name, variant_name, category, nominal, unique_code, total,
+          selling_price, cost_price, discount_amount, profit,
           status, payment_url, promo_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         data.orderId,
@@ -190,9 +274,14 @@ export function recordTransaction(data: {
         customerName,
         data.productName,
         data.variantName,
+        category,
         Math.round(data.nominal),
         Math.round(data.uniqueCode),
         Math.round(data.total),
+        financials.sellingPrice,
+        financials.costPrice,
+        financials.discountAmount,
+        financials.profit,
         status,
         safePaymentUrl,
         promoId,
@@ -208,9 +297,14 @@ export function recordTransaction(data: {
         customerName,
         productName: data.productName,
         variantName: data.variantName,
+        category,
         nominal: Math.round(data.nominal),
         uniqueCode: Math.round(data.uniqueCode),
         total: Math.round(data.total),
+        sellingPrice: financials.sellingPrice,
+        costPrice: financials.costPrice,
+        discountAmount: financials.discountAmount,
+        profit: financials.profit,
         status,
         paymentUrl: safePaymentUrl,
         promoId,
@@ -228,9 +322,14 @@ export function recordTransaction(data: {
       customerName,
       productName: data.productName,
       variantName: data.variantName,
+      category,
       nominal: Math.round(data.nominal),
       uniqueCode: Math.round(data.uniqueCode),
       total: Math.round(data.total),
+      sellingPrice: financials.sellingPrice,
+      costPrice: financials.costPrice,
+      discountAmount: financials.discountAmount,
+      profit: financials.profit,
       status,
       paymentUrl: safePaymentUrl,
       promoId,
@@ -524,15 +623,42 @@ export function deleteTransaction(identifier: string): boolean {
  */
 export function getTransactionSummary(): TransactionSummary {
   try {
+    const nowMs = Date.now();
+    const sevenDaysAgoIso = new Date(nowMs - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const fourteenDaysAgoIso = new Date(nowMs - 14 * 24 * 60 * 60 * 1000).toISOString();
+
     const row = db.prepare(`
       SELECT
         COUNT(*) as totalCount,
         COALESCE(SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END), 0) as paidCount,
         COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) as pendingCount,
         COALESCE(SUM(CASE WHEN status = 'cancel' THEN 1 ELSE 0 END), 0) as cancelCount,
-        COALESCE(SUM(CASE WHEN status = 'paid' THEN total ELSE 0 END), 0) as totalRevenue
+        COALESCE(SUM(CASE WHEN status = 'paid' THEN (CASE WHEN nominal > 0 THEN nominal ELSE total END) ELSE 0 END), 0) as totalRevenue,
+        COALESCE(SUM(CASE WHEN status = 'paid' THEN COALESCE(profit, 0) ELSE 0 END), 0) as totalProfit,
+        COALESCE(SUM(CASE WHEN status = 'paid' AND COALESCE(NULLIF(updated_at, ''), created_at) >= ? THEN (CASE WHEN nominal > 0 THEN nominal ELSE total END) ELSE 0 END), 0) as revenue7d,
+        COALESCE(SUM(CASE WHEN status = 'paid' AND COALESCE(NULLIF(updated_at, ''), created_at) >= ? AND COALESCE(NULLIF(updated_at, ''), created_at) < ? THEN (CASE WHEN nominal > 0 THEN nominal ELSE total END) ELSE 0 END), 0) as prevRevenue7d,
+        COALESCE(SUM(CASE WHEN status = 'paid' AND COALESCE(NULLIF(updated_at, ''), created_at) >= ? THEN COALESCE(profit, 0) ELSE 0 END), 0) as profit7d,
+        COALESCE(SUM(CASE WHEN status = 'paid' AND COALESCE(NULLIF(updated_at, ''), created_at) >= ? THEN 1 ELSE 0 END), 0) as paidCount7d
       FROM transactions
-    `).get() as any;
+    `).get(
+      sevenDaysAgoIso,
+      fourteenDaysAgoIso,
+      sevenDaysAgoIso,
+      sevenDaysAgoIso,
+      sevenDaysAgoIso
+    ) as any;
+
+    const revenue7d = Number(row?.revenue7d || 0);
+    const prevRevenue7d = Number(row?.prevRevenue7d || 0);
+    const profit7d = Number(row?.profit7d || 0);
+    const revenueChangePercent =
+      prevRevenue7d > 0
+        ? Math.round(((revenue7d - prevRevenue7d) / prevRevenue7d) * 1000) / 10
+        : revenue7d > 0
+        ? 100
+        : 0;
+    const margin7dPercent =
+      revenue7d > 0 ? Math.round((profit7d / revenue7d) * 1000) / 10 : 0;
 
     return {
       totalCount: Number(row?.totalCount || 0),
@@ -540,6 +666,13 @@ export function getTransactionSummary(): TransactionSummary {
       pendingCount: Number(row?.pendingCount || 0),
       cancelCount: Number(row?.cancelCount || 0),
       totalRevenue: Number(row?.totalRevenue || 0),
+      totalProfit: Number(row?.totalProfit || 0),
+      revenue7d,
+      prevRevenue7d,
+      revenueChangePercent,
+      profit7d,
+      paidCount7d: Number(row?.paidCount7d || 0),
+      margin7dPercent,
     };
   } catch (err) {
     console.error('Gagal menghitung ringkasan transaksi dari SQLite:', err);
@@ -549,6 +682,13 @@ export function getTransactionSummary(): TransactionSummary {
       pendingCount: 0,
       cancelCount: 0,
       totalRevenue: 0,
+      totalProfit: 0,
+      revenue7d: 0,
+      prevRevenue7d: 0,
+      revenueChangePercent: 0,
+      profit7d: 0,
+      paidCount7d: 0,
+      margin7dPercent: 0,
     };
   }
 }

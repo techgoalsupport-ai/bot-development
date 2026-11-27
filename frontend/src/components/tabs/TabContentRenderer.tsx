@@ -1,17 +1,14 @@
 import React from 'react';
-import { TabStoreInfo } from './TabStoreInfo';
-import { TabSaldo } from './TabSaldo';
+import { TabPengaturanToko } from './TabPengaturanToko';
+import { TabSaldoTransaksi } from './TabSaldoTransaksi';
 import { TabCommand } from './TabCommand';
 import { TabProduk } from './TabProduk';
 import { TabKuponPromo } from './TabKuponPromo';
 import { TabSsm } from './TabSsm';
 import { TabTopUp } from './TabTopUp';
 import { TabConnectionDedicated } from './TabConnectionDedicated';
-import { TabKoneksiLayanan } from './TabKoneksiLayanan';
 import { TabGrup } from './TabGrup';
-import { TabTransaksi } from './TabTransaksi';
 import { TabAccountSecurity } from './TabAccountSecurity';
-import { TabBotManagement } from './TabBotManagement';
 import { TabLaporan } from './TabLaporan';
 import { useStoreConfig } from '../../hooks/useStoreConfig';
 import { useXavieraData } from '../../hooks/useXavieraData';
@@ -58,10 +55,19 @@ export const TabContentRenderer: React.FC<TabContentRendererProps> = ({
   currentUsername,
   onUsernameUpdated,
 }) => {
-  // 1. INFO PROFIL (Paling Atas)
-  if (selectedTab === 'Info Profil' || selectedTab === 'Store Info') {
+  // 1. PENGATURAN TOKO (Status Masa Sewa, Identitas Toko & Pratinjau WA, Redeem Token)
+  if (
+    selectedTab === 'Pengaturan Toko' ||
+    selectedTab === 'Info Profil' ||
+    selectedTab === 'Store Info' ||
+    selectedTab === 'Management Bot' ||
+    selectedTab === 'Bot Management' ||
+    selectedTab === 'ManagementBot' ||
+    selectedTab === 'Masa Sewa' ||
+    selectedTab === 'Voucher Token'
+  ) {
     return (
-      <TabStoreInfo
+      <TabPengaturanToko
         storeInfo={storeConfig.storeInfoDraft}
         setStoreInfo={storeConfig.setStoreInfoDraft}
         isSavingConfig={storeConfig.isSavingConfig}
@@ -74,27 +80,46 @@ export const TabContentRenderer: React.FC<TabContentRendererProps> = ({
           }
           return ok;
         }}
+        botData={botConn.botData}
+        onRefreshBotStatus={botConn.refreshStatus}
         showToast={showToast}
       />
     );
   }
 
-  // 2. SALDO (Di Bawah Info Profil)
-  if (selectedTab === 'Saldo' || selectedTab === 'tabSaldo') {
+  // 2. SALDO & TRANSAKSI (Halaman Gabungan Wallet Toko, Ringkasan 7 Hari, & Daftar Transaksi)
+  if (
+    selectedTab === 'Saldo & Transaksi' ||
+    selectedTab === 'Saldo' ||
+    selectedTab === 'tabSaldo' ||
+    selectedTab === 'Transaksi' ||
+    selectedTab === 'tab05' ||
+    selectedTab === 'Keuangan'
+  ) {
     return (
-      <TabSaldo
+      <TabSaldoTransaksi
+        storeInfo={storeConfig.storeInfo}
         xavieraProfile={xaviera.xavieraProfile}
         lunasQrisBalance={lunasQrisData?.lunasQrisBalance || undefined}
+        transactionsState={transactionsState}
+        productsList={xaviera.productsList}
         onRefreshProfile={xaviera.fetchXavieraProfile}
         onRefreshLunasQris={() => lunasQrisData?.fetchLunasQrisBalance(true)}
-        onNavigateToKoneksiLayanan={() => setSelectedTab && setSelectedTab('Koneksi Layanan')}
+        onNavigateToKoneksiLayanan={() => setSelectedTab && setSelectedTab('Koneksi & Layanan')}
         showToast={showToast}
       />
     );
   }
 
-  // 3. CONNECTION (Status, Form Nomor WA, 8-Char Pairing Code Checklist, and Live Terminal at bottom)
-  if (selectedTab === 'Connection' || selectedTab === 'tab06') {
+  // 3. KONEKSI & LAYANAN (WhatsApp Bot, Pairing Code, Xaviera, LunasQRIS, Telegram, & Live Terminal)
+  if (
+    selectedTab === 'Koneksi & Layanan' ||
+    selectedTab === 'Connection' ||
+    selectedTab === 'tab06' ||
+    selectedTab === 'Koneksi Layanan' ||
+    selectedTab === 'Layanan' ||
+    selectedTab === 'API'
+  ) {
     return (
       <TabConnectionDedicated
         botData={botConn.botData}
@@ -105,23 +130,12 @@ export const TabContentRenderer: React.FC<TabContentRendererProps> = ({
         loading={botConn.loading}
         copied={botConn.copied}
         onStartPairing={botConn.handleStartPairing}
+        onConnectSavedSession={botConn.handleConnectSavedSession}
+        onReconnect={botConn.handleReconnect}
         onStop={botConn.handleStop}
         onReset={botConn.handleReset}
         onCopyCode={botConn.handleCopyCode}
         isStoreInfoComplete={isStoreInfoCompleteForPairing}
-        showToast={showToast}
-      />
-    );
-  }
-
-  // 4. KONEKSI LAYANAN (Integrasi API Xaviera & LunasQRIS Payment Gateway)
-  if (
-    selectedTab === 'Koneksi Layanan' ||
-    selectedTab === 'Layanan' ||
-    selectedTab === 'API'
-  ) {
-    return (
-      <TabKoneksiLayanan
         xavieraApiKey={xaviera.xavieraApiKey}
         setXavieraApiKey={xaviera.setXavieraApiKey}
         xavieraBaseUrl={xaviera.xavieraBaseUrl}
@@ -364,6 +378,67 @@ export const TabContentRenderer: React.FC<TabContentRendererProps> = ({
           });
           showToast('Konfigurasi Respon Kontak & Sewa berhasil disimpan!');
         }}
+        // Grup (Moderasi & AntiKudeta)
+        kickAntiKudetaText={storeConfig.kickAntiKudetaText}
+        setKickAntiKudetaText={storeConfig.setKickAntiKudetaText}
+        kickAntiKudetaFooter={storeConfig.kickAntiKudetaFooter}
+        setKickAntiKudetaFooter={storeConfig.setKickAntiKudetaFooter}
+        kickBotNotAdminText={storeConfig.kickBotNotAdminText}
+        setKickBotNotAdminText={storeConfig.setKickBotNotAdminText}
+        kickBotNotAdminFooter={storeConfig.kickBotNotAdminFooter}
+        setKickBotNotAdminFooter={storeConfig.setKickBotNotAdminFooter}
+        kickSuccessText={storeConfig.kickSuccessText}
+        setKickSuccessText={storeConfig.setKickSuccessText}
+        kickSuccessFooter={storeConfig.kickSuccessFooter}
+        setKickSuccessFooter={storeConfig.setKickSuccessFooter}
+        openBotNotAdminText={storeConfig.openBotNotAdminText}
+        setOpenBotNotAdminText={storeConfig.setOpenBotNotAdminText}
+        openBotNotAdminFooter={storeConfig.openBotNotAdminFooter}
+        setOpenBotNotAdminFooter={storeConfig.setOpenBotNotAdminFooter}
+        openAlreadyText={storeConfig.openAlreadyText}
+        setOpenAlreadyText={storeConfig.setOpenAlreadyText}
+        openAlreadyFooter={storeConfig.openAlreadyFooter}
+        setOpenAlreadyFooter={storeConfig.setOpenAlreadyFooter}
+        openSuccessText={storeConfig.openSuccessText}
+        setOpenSuccessText={storeConfig.setOpenSuccessText}
+        openSuccessFooter={storeConfig.openSuccessFooter}
+        setOpenSuccessFooter={storeConfig.setOpenSuccessFooter}
+        closeBotNotAdminText={storeConfig.closeBotNotAdminText}
+        setCloseBotNotAdminText={storeConfig.setCloseBotNotAdminText}
+        closeBotNotAdminFooter={storeConfig.closeBotNotAdminFooter}
+        setCloseBotNotAdminFooter={storeConfig.setCloseBotNotAdminFooter}
+        closeAlreadyText={storeConfig.closeAlreadyText}
+        setCloseAlreadyText={storeConfig.setCloseAlreadyText}
+        closeAlreadyFooter={storeConfig.closeAlreadyFooter}
+        setCloseAlreadyFooter={storeConfig.setCloseAlreadyFooter}
+        closeSuccessText={storeConfig.closeSuccessText}
+        setCloseSuccessText={storeConfig.setCloseSuccessText}
+        closeSuccessFooter={storeConfig.closeSuccessFooter}
+        setCloseSuccessFooter={storeConfig.setCloseSuccessFooter}
+        onSaveGrup={() => {
+          storeConfig.syncConfigToServer({
+            kickAntiKudetaText: storeConfig.kickAntiKudetaText,
+            kickAntiKudetaFooter: storeConfig.kickAntiKudetaFooter,
+            kickBotNotAdminText: storeConfig.kickBotNotAdminText,
+            kickBotNotAdminFooter: storeConfig.kickBotNotAdminFooter,
+            kickSuccessText: storeConfig.kickSuccessText,
+            kickSuccessFooter: storeConfig.kickSuccessFooter,
+            openBotNotAdminText: storeConfig.openBotNotAdminText,
+            openBotNotAdminFooter: storeConfig.openBotNotAdminFooter,
+            openAlreadyText: storeConfig.openAlreadyText,
+            openAlreadyFooter: storeConfig.openAlreadyFooter,
+            openSuccessText: storeConfig.openSuccessText,
+            openSuccessFooter: storeConfig.openSuccessFooter,
+            closeBotNotAdminText: storeConfig.closeBotNotAdminText,
+            closeBotNotAdminFooter: storeConfig.closeBotNotAdminFooter,
+            closeAlreadyText: storeConfig.closeAlreadyText,
+            closeAlreadyFooter: storeConfig.closeAlreadyFooter,
+            closeSuccessText: storeConfig.closeSuccessText,
+            closeSuccessFooter: storeConfig.closeSuccessFooter,
+            responseExtras: storeConfig.responseExtras,
+          });
+          showToast('Konfigurasi Respon Moderasi Grup berhasil disimpan!');
+        }}
         responseExtras={storeConfig.responseExtras}
         onUpdateResponseExtra={storeConfig.updateResponseExtra}
         storeInfo={storeConfig.storeInfo}
@@ -489,15 +564,6 @@ export const TabContentRenderer: React.FC<TabContentRendererProps> = ({
     );
   }
 
-  // 10. TRANSAKSI (Riwayat Transaksi LunasQRIS)
-  if (selectedTab === 'Transaksi' || selectedTab === 'tab05') {
-    return (
-      <TabTransaksi
-        transactionsState={transactionsState}
-        showToast={showToast}
-      />
-    );
-  }
 
   // 11. KEAMANAN & KREDENSIAL AKUN
   if (
@@ -511,22 +577,6 @@ export const TabContentRenderer: React.FC<TabContentRendererProps> = ({
       <TabAccountSecurity
         currentUsername={currentUsername}
         onUsernameUpdated={onUsernameUpdated}
-        showToast={showToast}
-      />
-    );
-  }
-
-  // 12. MANAGEMENT BOT (Status Bot, Masa Aktif, Tanggal Expired, Form Redeem Token)
-  if (
-    selectedTab === 'Management Bot' ||
-    selectedTab === 'Bot Management' ||
-    selectedTab === 'ManagementBot' ||
-    selectedTab === 'Masa Sewa' ||
-    selectedTab === 'Voucher Token'
-  ) {
-    return (
-      <TabBotManagement
-        botData={botConn.botData}
         showToast={showToast}
       />
     );

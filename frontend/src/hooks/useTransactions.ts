@@ -9,6 +9,13 @@ export function useTransactions(showToast?: (msg: string) => void) {
     pendingCount: 0,
     cancelCount: 0,
     totalRevenue: 0,
+    totalProfit: 0,
+    revenue7d: 0,
+    prevRevenue7d: 0,
+    revenueChangePercent: 0,
+    profit7d: 0,
+    paidCount7d: 0,
+    margin7dPercent: 0,
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);

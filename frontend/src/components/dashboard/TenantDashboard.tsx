@@ -26,6 +26,11 @@ import { DesktopTopNav } from '../layout/DesktopTopNav';
 // Tab Renderer component
 import { TabContentRenderer } from '../tabs/TabContentRenderer';
 import { hasRequiredStoreInfoFields } from '../../utils/storeInfoValidation';
+import {
+  DEFAULT_TENANT_TAB,
+  getInitialTenantTab,
+  persistTenantTab,
+} from '../../utils/tabPersistence';
 
 
 interface TenantDashboardProps {
@@ -39,7 +44,36 @@ interface TenantDashboardProps {
 }
 
 export function TenantDashboard({ auth }: TenantDashboardProps) {
-  const [selectedTab, setSelectedTab] = useState<string>('Info Profil');
+  const activeTenantKey = auth.user?.tenantId || auth.user?.username || 'default_tenant';
+  const [selectedTab, setSelectedTabState] = useState<string>(() => getInitialTenantTab(activeTenantKey));
+
+  const setSelectedTab = useCallback(
+    (tab: string) => {
+      const canonical = persistTenantTab(activeTenantKey, tab, 'push');
+      setSelectedTabState(canonical);
+    },
+    [activeTenantKey]
+  );
+
+  useEffect(() => {
+    persistTenantTab(activeTenantKey, selectedTab, 'replace');
+  }, [activeTenantKey]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setSelectedTabState(getInitialTenantTab(activeTenantKey));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [activeTenantKey]);
+
+  // Pastikan jika selectedTab ternyata alias tidak dikenal, normalisasi secara aman
+  useEffect(() => {
+    if (!selectedTab) {
+      setSelectedTabState(DEFAULT_TENANT_TAB);
+    }
+  }, [selectedTab]);
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth < 1280;
@@ -230,7 +264,7 @@ export function TenantDashboard({ auth }: TenantDashboardProps) {
           onRefreshProfile={xaviera.fetchXavieraProfile}
           onRefreshLunasQris={() => lunasQrisData.fetchLunasQrisBalance(true)}
           onNavigateToConnection={() => {
-            setSelectedTab('Connection');
+            setSelectedTab('Koneksi & Layanan');
             setIsMobileMenuOpen(false);
           }}
           username={auth.user?.username}
@@ -244,11 +278,29 @@ export function TenantDashboard({ auth }: TenantDashboardProps) {
 
         {/* Main Workspace */}
         {(() => {
-          const hasOwnCards =
+          const noOuterCardWrapper =
+            selectedTab === 'Pengaturan Toko' ||
             selectedTab === 'Info Profil' ||
             selectedTab === 'Store Info' ||
+            selectedTab === 'Management Bot' ||
+            selectedTab === 'Bot Management' ||
+            selectedTab === 'ManagementBot' ||
+            selectedTab === 'Masa Sewa' ||
+            selectedTab === 'Voucher Token' ||
+            selectedTab === 'Saldo & Transaksi' ||
+            selectedTab === 'Saldo' ||
+            selectedTab === 'tabSaldo' ||
+            selectedTab === 'Transaksi' ||
+            selectedTab === 'tab05' ||
+            selectedTab === 'Keuangan' ||
+            selectedTab === 'Koneksi & Layanan' ||
             selectedTab === 'Connection' ||
             selectedTab === 'tab06' ||
+            selectedTab === 'Koneksi Layanan' ||
+            selectedTab === 'Layanan' ||
+            selectedTab === 'API';
+
+          const hasOwnCards =
             selectedTab === 'Management group' ||
             selectedTab === 'Grup' ||
             selectedTab === 'tab04' ||
@@ -261,7 +313,9 @@ export function TenantDashboard({ auth }: TenantDashboardProps) {
             <main className="flex-1 p-3 sm:p-5 md:p-8 max-w-7xl w-full mx-auto space-y-3.5 sm:space-y-6">
               <div
                 className={
-                  hasOwnCards
+                  noOuterCardWrapper
+                    ? ''
+                    : hasOwnCards
                     ? 'md:bg-white md:border md:border-slate-200/90 md:rounded-2xl md:p-6 md:shadow-2xs'
                     : 'bg-white border border-slate-200/90 rounded-2xl p-3.5 sm:p-6 shadow-2xs'
                 }

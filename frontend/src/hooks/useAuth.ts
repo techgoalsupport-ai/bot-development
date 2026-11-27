@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { clearPersistedTenantTab } from '../utils/tabPersistence';
 
 const TOKEN_KEY = 'wanzt_bot_auth_token';
 
@@ -222,6 +223,7 @@ export function useAuth() {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem('wanzt_tenant_id');
     } catch {}
+    clearPersistedTenantTab();
 
     setToken(null);
     setUser(null);

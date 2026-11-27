@@ -50,16 +50,53 @@ async function initializeFullApp(isProduction: boolean): Promise<Express> {
   const [
     { default: express },
     { serverApp },
+    { autoReconnectSavedBots },
     { startExpiryWarningScheduler },
     { startBroadcastScheduler },
+    { parseHostListEnv, isDevelopmentPreviewHost },
     viteModule,
   ] = await Promise.all([
     import("express"),
     import("./backend/app.ts"),
+    import("./backend/botManager.ts"),
     import("./backend/services/expiryWarningService.ts"),
     import("./admin-backend/services/broadcastService.ts"),
+    import("./admin-backend/services/partnerApiUtils.ts"),
     !isProduction ? import("vite") : Promise.resolve(null),
   ]);
+
+  const configuredAdminHosts = Array.from(
+    new Set([
+      ...parseHostListEnv(process.env.ADMIN_HOST),
+      ...parseHostListEnv(process.env.ADMIN_PUBLIC_URL),
+    ]),
+  );
+  const configuredTenantHosts = parseHostListEnv(process.env.TENANT_PUBLIC_URL);
+  const hasDualDomainConfig =
+    configuredAdminHosts.length > 0 || configuredTenantHosts.length > 0;
+
+  const isHostAdminRequest = (hostname: string): boolean => {
+    const clean = (hostname || "").trim().toLowerCase();
+    if (!clean) return false;
+    if (configuredAdminHosts.length > 0) {
+      return configuredAdminHosts.includes(clean);
+    }
+    return clean.startsWith("admin.");
+  };
+
+  const shouldRedirectAdminPathToRoot = (
+    hostname: string,
+    reqPath: string,
+  ): boolean => {
+    if (!hasDualDomainConfig) return false;
+    const isAdminRoute = reqPath === "/admin" || reqPath.startsWith("/admin/");
+    if (!isAdminRoute) return false;
+    const cleanHost = (hostname || "").trim().toLowerCase();
+    if (!configuredTenantHosts.includes(cleanHost) && isDevelopmentPreviewHost(cleanHost)) {
+      return false;
+    }
+    return !isHostAdminRequest(hostname);
+  };
 
   if (!isProduction && viteModule) {
     const { createServer: createViteServer } = viteModule;
@@ -116,13 +153,19 @@ async function initializeFullApp(isProduction: boolean): Promise<Express> {
         return next();
       }
 
+      if (shouldRedirectAdminPathToRoot(req.hostname, req.path)) {
+        return res.redirect(302, "/");
+      }
+
       // Jika path tepat /admin (tanpa slash akhir), redirect ke /admin/ agar path relatif & script base resolve sempurna
       if (req.path === "/admin") {
-        return res.redirect(301, "/admin/");
+        const qIndex = req.url.indexOf("?");
+        const qs = qIndex >= 0 ? req.url.slice(qIndex) : "";
+        return res.redirect(301, `/admin/${qs}`);
       }
 
       // Deteksi Subdomain admin.* ATAU path /admin/
-      const isHostAdmin = req.hostname.startsWith("admin.");
+      const isHostAdmin = isHostAdminRequest(req.hostname);
       const isPathAdmin = req.path.startsWith("/admin/");
 
       if (isHostAdmin || isPathAdmin) {
@@ -159,7 +202,10 @@ async function initializeFullApp(isProduction: boolean): Promise<Express> {
 
     serverApp.use((req, res, next) => {
       if (req.path.startsWith("/api")) return next();
-      const isHostAdmin = req.hostname.startsWith("admin.");
+      if (shouldRedirectAdminPathToRoot(req.hostname, req.path)) {
+        return res.redirect(302, "/");
+      }
+      const isHostAdmin = isHostAdminRequest(req.hostname);
       if (isHostAdmin) {
         return staticAdmin ? staticAdmin(req, res, next) : next();
       }
@@ -169,7 +215,11 @@ async function initializeFullApp(isProduction: boolean): Promise<Express> {
     serverApp.use((req, res, next) => {
       if (req.method !== "GET" || req.path.startsWith("/api")) return next();
 
-      const isHostAdmin = req.hostname.startsWith("admin.");
+      if (shouldRedirectAdminPathToRoot(req.hostname, req.path)) {
+        return res.redirect(302, "/");
+      }
+
+      const isHostAdmin = isHostAdminRequest(req.hostname);
       const isPathAdmin =
         req.path === "/admin" || req.path.startsWith("/admin/");
 
@@ -204,6 +254,15 @@ async function initializeFullApp(isProduction: boolean): Promise<Express> {
         broadcastSchedErr,
       );
     }
+
+    setTimeout(() => {
+      void autoReconnectSavedBots().catch((autoErr) => {
+        console.error(
+          "[Wanzt Store] Gagal menjalankan auto-reconnect bot:",
+          autoErr,
+        );
+      });
+    }, 2000);
   });
 
   return serverApp;
@@ -218,15 +277,31 @@ function startServer() {
   let readyPromise: Promise<Express> | null = null;
 
   const ensureInitialized = (): Promise<Express> => {
+    if (readyApp) {
+      return Promise.resolve(readyApp);
+    }
     if (!readyPromise) {
+      initError = null;
       readyPromise = initializeFullApp(isProduction)
         .then((app) => {
           readyApp = app;
+          initError = null;
           return app;
         })
-        .catch((err) => {
+        .catch((err: any) => {
           initError = err;
+          readyPromise = null;
           console.error("[Wanzt Store] Gagal menginisialisasi aplikasi:", err);
+          if (
+            err?.code === "ERR_MODULE_NOT_FOUND" ||
+            err?.code === "MODULE_NOT_FOUND"
+          ) {
+            setTimeout(() => {
+              if (!readyApp && !readyPromise) {
+                void ensureInitialized().catch(() => {});
+              }
+            }, 2500);
+          }
           throw err;
         });
     }

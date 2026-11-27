@@ -27,6 +27,7 @@ import {
 
 import { seedDefaultMedia } from './services/mediaManager.ts';
 import { isCorsOriginAllowed } from './utils/corsSecurity.ts';
+import { isAdminRequestHostAllowed } from '../admin-backend/services/partnerApiUtils.ts';
 
 export function createServerApp(): Express {
   // Pastikan database SQLite dan media siap
@@ -92,8 +93,25 @@ export function createServerApp(): Express {
   );
   app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-  // Mount Partner REST API Publik sebelum middleware identifikasi sesi tenant
-  app.use('/api/v1/partner', partnerPublicRouter);
+  const requireAdminDomainHost = (req: Request, res: Response, next: NextFunction) => {
+    const allowed = isAdminRequestHostAllowed({
+      requestHost: req.get('host'),
+      adminHostEnv: process.env.ADMIN_HOST,
+      adminPublicUrlEnv: process.env.ADMIN_PUBLIC_URL,
+      tenantPublicUrlEnv: process.env.TENANT_PUBLIC_URL,
+    });
+    if (!allowed) {
+      return res.status(404).json({
+        success: false,
+        error: 'NOT_FOUND',
+        message: 'Endpoint tidak tersedia pada domain ini.',
+      });
+    }
+    next();
+  };
+
+  // Mount Partner REST API Publik sebelum middleware identifikasi sesi tenant (terkunci khusus domain admin bila dikonfigurasi)
+  app.use('/api/v1/partner', requireAdminDomainHost, partnerPublicRouter);
 
   // Middleware Identifikasi Tenant (Strict Session-Only Isolation)
   app.use((req: Request, _res: Response, next: NextFunction) => {
@@ -149,7 +167,7 @@ export function createServerApp(): Express {
       error: 'Endpoint legacy /api/apartment/* telah dinonaktifkan. Gunakan /api/admin/*.',
     });
   });
-  app.use('/api/admin', adminRouter);
+  app.use('/api/admin', requireAdminDomainHost, adminRouter);
 
   return app;
 }

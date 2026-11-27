@@ -1,4 +1,49 @@
-import { TemplateCategory, WhatsAppButton } from '../types/admin.types.ts';
+import {
+  MandatoryButtonRole,
+  QuickReplyTriggerAction,
+  TemplateCategory,
+  WhatsAppButton,
+  WhatsAppButtonType,
+} from '../types/admin.types.ts';
+
+export type SimplifiedMandatoryRole =
+  | 'order'
+  | 'dropdown'
+  | 'pay'
+  | 'admin'
+  | 'promo'
+  | 'direct';
+
+export const MANDATORY_ROLE_ALIAS_TO_CANONICAL: Record<string, MandatoryButtonRole> = {
+  order: 'carousel_order',
+  carousel_order: 'carousel_order',
+  dropdown: 'list_dropdown',
+  list_dropdown: 'list_dropdown',
+  pay: 'invoice_pay_url',
+  invoice_pay_url: 'invoice_pay_url',
+  admin: 'invoice_contact_admin',
+  invoice_contact_admin: 'invoice_contact_admin',
+  promo: 'confirm_promo',
+  confirm_promo: 'confirm_promo',
+  direct: 'confirm_direct',
+  confirm_direct: 'confirm_direct',
+};
+
+export const CANONICAL_ROLE_TO_SIMPLIFIED: Record<MandatoryButtonRole, SimplifiedMandatoryRole> = {
+  carousel_order: 'order',
+  list_dropdown: 'dropdown',
+  invoice_pay_url: 'pay',
+  invoice_contact_admin: 'admin',
+  confirm_promo: 'promo',
+  confirm_direct: 'direct',
+};
+
+const QUICK_REPLY_DEFAULT_OUTPUT: Record<Exclude<QuickReplyTriggerAction, 'unknown'>, string> = {
+  list: '.list',
+  menu: '.menu',
+  owner: 'contact_owner',
+  admin: 'contact_admin',
+};
 
 export const MANDATORY_BUTTON_SPECS: Partial<Record<TemplateCategory, WhatsAppButton[]>> = {
   carousel: [
@@ -58,6 +103,326 @@ export const MANDATORY_BUTTON_SPECS: Partial<Record<TemplateCategory, WhatsAppBu
     },
   ],
 };
+
+function normalizeShortButtonType(rawType: unknown, rawObj: Record<string, any>): WhatsAppButtonType {
+  const cleaned = typeof rawType === 'string' ? rawType.trim().toLowerCase() : '';
+  switch (cleaned) {
+    case 'reply':
+    case 'quick_reply':
+      return 'quick_reply';
+    case 'url':
+    case 'link':
+    case 'cta_url':
+      return 'cta_url';
+    case 'copy':
+    case 'cta_copy':
+      return 'cta_copy';
+    case 'call':
+    case 'phone':
+    case 'cta_call':
+      return 'cta_call';
+    case 'vcard':
+    case 'contact':
+      return 'vcard';
+    case 'reminder':
+    case 'cta_reminder':
+      return 'cta_reminder';
+    case 'cancel_reminder':
+    case 'cta_cancel_reminder':
+      return 'cta_cancel_reminder';
+    default: {
+      if (typeof rawObj.url === 'string' && rawObj.url.trim()) return 'cta_url';
+      if (typeof rawObj.phone === 'string' && rawObj.phone.trim()) {
+        return typeof rawObj.contactName === 'string' && rawObj.contactName.trim()
+          ? 'vcard'
+          : 'cta_call';
+      }
+      return 'quick_reply';
+    }
+  }
+}
+
+function normalizeTriggerAction(rawAction: unknown): QuickReplyTriggerAction | undefined {
+  if (typeof rawAction !== 'string') return undefined;
+  const cleaned = rawAction.trim().toLowerCase();
+  if (
+    cleaned === 'list' ||
+    cleaned === 'menu' ||
+    cleaned === 'owner' ||
+    cleaned === 'admin' ||
+    cleaned === 'unknown'
+  ) {
+    return cleaned;
+  }
+  return undefined;
+}
+
+export function normalizeJsonButtonInput(
+  raw: unknown,
+  category: TemplateCategory,
+): { button: WhatsAppButton | null; warnings: string[] } {
+  if (!raw || typeof raw !== 'object') {
+    return { button: null, warnings: [] };
+  }
+
+  const obj = raw as Record<string, any>;
+  const warnings: string[] = [];
+  const normalizedCat = (category === 'confirmation' ? 'confirm_summary' : category) as TemplateCategory;
+  const specs = MANDATORY_BUTTON_SPECS[normalizedCat] || [];
+
+  // 1. Cek shortcut `role` atau `mandatoryRole` untuk tombol wajib
+  const rawRoleKey =
+    typeof obj.role === 'string'
+      ? obj.role.trim().toLowerCase()
+      : typeof obj.mandatoryRole === 'string'
+        ? obj.mandatoryRole.trim().toLowerCase()
+        : '';
+  const canonicalRole = rawRoleKey ? MANDATORY_ROLE_ALIAS_TO_CANONICAL[rawRoleKey] : undefined;
+
+  if (canonicalRole) {
+    const spec = specs.find((s) => s.mandatoryRole === canonicalRole);
+    if (spec) {
+      const explicitType =
+        typeof obj.type === 'string' && obj.type.trim()
+          ? normalizeShortButtonType(obj.type, obj)
+          : undefined;
+      const explicitValue =
+        obj.output ?? obj.value ?? obj.url ?? obj.text ?? undefined;
+      const explicitValueStr =
+        typeof explicitValue === 'string' ? explicitValue.trim() : '';
+
+      if (
+        (explicitType && explicitType !== spec.type) ||
+        (explicitValueStr && explicitValueStr !== spec.output)
+      ) {
+        const displayRole = CANONICAL_ROLE_TO_SIMPLIFIED[canonicalRole] || canonicalRole;
+        warnings.push(
+          `[${normalizedCat}] Tombol wajib "${displayRole}" dikunci sistem ke tipe "${spec.type}" (${spec.output}); hanya label nama "${String(obj.name || spec.name).trim()}" yang digunakan.`
+        );
+      }
+
+      const customName =
+        typeof obj.name === 'string' && obj.name.trim() ? obj.name.trim() : spec.name;
+      return {
+        button: {
+          ...spec,
+          name: customName,
+          mandatory: true,
+        },
+        warnings,
+      };
+    }
+  }
+
+  // 2. Normalisasi tombol kustom (mendukung format sederhana & format lama)
+  const resolvedType = normalizeShortButtonType(obj.type, obj);
+  const rawName = typeof obj.name === 'string' ? obj.name.trim() : '';
+  const rawId = typeof obj.id === 'string' && obj.id.trim() ? obj.id.trim() : '';
+
+  if (resolvedType === 'cta_url') {
+    const resolvedUrl = String(obj.url ?? obj.value ?? obj.output ?? '').trim();
+    return {
+      button: {
+        id: rawId,
+        type: 'cta_url',
+        name: rawName || '🌐 Kunjungi Link',
+        output: resolvedUrl,
+      },
+      warnings,
+    };
+  }
+
+  if (resolvedType === 'cta_copy') {
+    const resolvedCopy = String(obj.value ?? obj.text ?? obj.output ?? '').trim();
+    return {
+      button: {
+        id: rawId,
+        type: 'cta_copy',
+        name: rawName || '📋 Salin Teks',
+        output: resolvedCopy,
+      },
+      warnings,
+    };
+  }
+
+  if (resolvedType === 'cta_call') {
+    const resolvedPhone = String(
+      obj.phone ?? obj.callPhoneNumber ?? obj.value ?? obj.output ?? ''
+    ).trim();
+    return {
+      button: {
+        id: rawId,
+        type: 'cta_call',
+        name: rawName || '📞 Hubungi',
+        output: resolvedPhone,
+        callPhoneNumber: resolvedPhone,
+      },
+      warnings,
+    };
+  }
+
+  if (resolvedType === 'vcard') {
+    const resolvedPhone = String(
+      obj.phone ?? obj.callPhoneNumber ?? obj.value ?? obj.output ?? ''
+    ).trim();
+    const resolvedContactName = String(
+      obj.contactName ?? obj.callTargetName ?? rawName
+    ).trim();
+    return {
+      button: {
+        id: rawId,
+        type: 'vcard',
+        name: rawName || '👤 Simpan Kontak',
+        output: resolvedPhone,
+        callPhoneNumber: resolvedPhone,
+        callTargetName: resolvedContactName || rawName || 'Kontak',
+      },
+      warnings,
+    };
+  }
+
+  if (resolvedType === 'cta_reminder' || resolvedType === 'cta_cancel_reminder') {
+    const resolvedVal = String(obj.value ?? obj.output ?? rawName).trim();
+    return {
+      button: {
+        id: rawId,
+        type: resolvedType,
+        name:
+          rawName ||
+          (resolvedType === 'cta_reminder' ? '⏰ Ingatkan Saya' : '🔕 Batalkan Pengingat'),
+        output: resolvedVal,
+      },
+      warnings,
+    };
+  }
+
+  // quick_reply (reply)
+  let resolvedAction = normalizeTriggerAction(
+    obj.action ?? obj.trigger ?? obj.triggerAction
+  );
+  let resolvedOutput = String(obj.output ?? obj.value ?? obj.text ?? '').trim();
+
+  if (!resolvedOutput && resolvedAction && resolvedAction !== 'unknown') {
+    resolvedOutput = QUICK_REPLY_DEFAULT_OUTPUT[resolvedAction];
+  }
+
+  if (!resolvedAction && resolvedOutput) {
+    const lowerOut = resolvedOutput.toLowerCase();
+    if (lowerOut === '.list' || lowerOut === 'list') resolvedAction = 'list';
+    else if (lowerOut === '.menu' || lowerOut === 'menu') resolvedAction = 'menu';
+    else if (lowerOut === 'contact_owner') resolvedAction = 'owner';
+    else if (lowerOut === 'contact_admin') resolvedAction = 'admin';
+  }
+
+  if (!resolvedOutput) {
+    const slug = (rawName || 'tombol')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    resolvedOutput = slug || 'menu_item';
+  }
+
+  return {
+    button: {
+      id: rawId,
+      type: 'quick_reply',
+      name: rawName || '👉 Klik Di Sini',
+      output: resolvedOutput,
+      ...(resolvedAction && resolvedAction !== 'unknown'
+        ? { triggerAction: resolvedAction }
+        : resolvedAction === 'unknown'
+          ? { triggerAction: 'unknown' }
+          : {}),
+    },
+    warnings,
+  };
+}
+
+export function normalizeJsonButtonsList(
+  rawButtons: unknown,
+  category: TemplateCategory,
+): { buttons: WhatsAppButton[]; warnings: string[] } {
+  if (!Array.isArray(rawButtons)) {
+    return { buttons: getDefaultButtonsForCategory(category), warnings: [] };
+  }
+
+  const normalizedList: WhatsAppButton[] = [];
+  const allWarnings: string[] = [];
+
+  for (const rawBtn of rawButtons) {
+    const { button, warnings } = normalizeJsonButtonInput(rawBtn, category);
+    if (warnings.length > 0) allWarnings.push(...warnings);
+    if (button) normalizedList.push(button);
+  }
+
+  return {
+    buttons: normalizedList,
+    warnings: allWarnings,
+  };
+}
+
+export function simplifyButtonForExport(btn: WhatsAppButton): Record<string, any> {
+  if (btn.mandatory && btn.mandatoryRole) {
+    const shortRole = CANONICAL_ROLE_TO_SIMPLIFIED[btn.mandatoryRole] || btn.mandatoryRole;
+    return {
+      role: shortRole,
+      name: btn.name,
+    };
+  }
+
+  switch (btn.type) {
+    case 'cta_url':
+      return {
+        type: 'url',
+        name: btn.name,
+        url: btn.output || '',
+      };
+    case 'cta_copy':
+      return {
+        type: 'copy',
+        name: btn.name,
+        value: btn.output || '',
+      };
+    case 'cta_call':
+      return {
+        type: 'call',
+        name: btn.name,
+        phone: btn.callPhoneNumber || btn.output || '',
+      };
+    case 'vcard':
+      return {
+        type: 'vcard',
+        name: btn.name,
+        contactName: btn.callTargetName || btn.name,
+        phone: btn.callPhoneNumber || btn.output || '',
+      };
+    case 'cta_reminder':
+    case 'cta_cancel_reminder':
+      return {
+        type: btn.type,
+        name: btn.name,
+        ...(btn.output ? { value: btn.output } : {}),
+      };
+    case 'quick_reply':
+    default: {
+      const action = btn.triggerAction;
+      const out = (btn.output || '').trim();
+      const result: Record<string, any> = {
+        type: 'reply',
+        name: btn.name,
+      };
+      if (action && action !== 'unknown') {
+        result.action = action;
+        if (out && out !== QUICK_REPLY_DEFAULT_OUTPUT[action]) {
+          result.value = out;
+        }
+      } else if (out) {
+        result.value = out;
+      }
+      return result;
+    }
+  }
+}
 
 function findMatchingMandatoryButton(
   spec: WhatsAppButton,
@@ -188,7 +553,8 @@ export function buildTemplateSignature(input: {
     type: b.type,
     name: String(b.name || '').trim(),
     output: String(b.output || '').trim(),
-    triggerAction: b.triggerAction || undefined,
+    triggerAction:
+      b.triggerAction && b.triggerAction !== 'unknown' ? b.triggerAction : undefined,
     callTargetName: b.callTargetName ? String(b.callTargetName).trim() : undefined,
     callPhoneNumber: b.callPhoneNumber ? String(b.callPhoneNumber).trim() : undefined,
     mandatory: Boolean(b.mandatory),
@@ -244,6 +610,19 @@ export function getSuggestedFooterForCategory(category: TemplateCategory): strin
       return '{storeName} • Layanan Pelanggan';
     case 'expiry_warning_owner':
       return '{storeName} Official • Notifikasi Otomatis';
+    case 'kick_anti_kudeta':
+      return '{storeName} • Proteksi AntiKudeta';
+    case 'kick_bot_not_admin':
+      return '{storeName} • Moderasi Grup';
+    case 'kick_success':
+      return '{storeName} • Moderasi Grup';
+    case 'open_bot_not_admin':
+    case 'open_already':
+    case 'open_success':
+    case 'close_bot_not_admin':
+    case 'close_already':
+    case 'close_success':
+      return '{storeName} • Moderasi Grup';
     default:
       return '{storeName} • Otomatis';
   }
@@ -269,6 +648,15 @@ export const ALL_IMPORTABLE_CATEGORIES: TemplateCategory[] = [
   'contact_owner_empty',
   'contact_admin_empty',
   'expiry_warning_owner',
+  'kick_anti_kudeta',
+  'kick_bot_not_admin',
+  'kick_success',
+  'open_bot_not_admin',
+  'open_already',
+  'open_success',
+  'close_bot_not_admin',
+  'close_already',
+  'close_success',
 ];
 
 export function formatGroupedJsonWithBlankLines(grouped: Record<string, any>): string {
@@ -288,145 +676,176 @@ export function formatGroupedJsonWithBlankLines(grouped: Record<string, any>): s
 }
 
 export function buildSampleMultiCategoryJson(): string {
+  const buildEntry = (
+    category: TemplateCategory,
+    name: string,
+    content: string,
+    buttons?: WhatsAppButton[],
+  ) => {
+    const footer = getSuggestedFooterForCategory(category);
+    const entry: Record<string, any> = { name, content };
+    if (footer) entry.footer = footer;
+    if (buttons && buttons.length > 0) {
+      entry.buttons = buttons.map(simplifyButtonForExport);
+    }
+    return entry;
+  };
+
   const sample: Record<string, any> = {
-    menu: {
-      name: 'Paket Menu Utama',
-      content:
-        'Halo kak! Selamat datang di {storeName} ✨\n\nSilakan pilih layanan yang ingin Anda pesan melalui tombol interaktif di bawah ini:',
-      footer_text: getSuggestedFooterForCategory('menu'),
-      buttons: [
+    menu: buildEntry(
+      'menu',
+      'Paket Menu Utama',
+      'Halo kak! Selamat datang di {storeName} ✨\n\nSilakan pilih layanan yang ingin Anda pesan melalui tombol interaktif di bawah ini:',
+      [
         {
+          id: 'sample_menu_list',
           type: 'quick_reply',
           name: '📋 Daftar Produk',
           output: '.list',
           triggerAction: 'list',
         },
       ],
-    },
-    list: {
-      name: 'Paket List Katalog',
-      content: '📋 *DAFTAR LAYANAN & HARGA {storeName}*\n\nSilakan pilih produk yang tersedia:',
-      footer_text: getSuggestedFooterForCategory('list'),
-      buttons: getDefaultButtonsForCategory('list').map(({ id: _id, ...rest }) => rest),
-    },
-    carousel: {
-      name: 'Paket Carousel Produk',
-      content: '🛍️ *PRODUK TERSEDIA*\nSilakan geser kartu di bawah untuk memilih varian:',
-      footer_text: getSuggestedFooterForCategory('carousel'),
-      buttons: getDefaultButtonsForCategory('carousel').map(({ id: _id, ...rest }) => rest),
-    },
-    invoice: {
-      name: 'Paket Invoice QRIS',
-      content:
-        '🧾 *INVOICE PEMBAYARAN QRIS*\nHalo kak, pesanan varian *{varian}* untuk produk *{produkName}* telah diterbitkan!\n\n• *ID Order:* `{orderId}`\n• *Total Bayar:* *Rp {finalPrice}*',
-      footer_text: getSuggestedFooterForCategory('invoice'),
-      buttons: getDefaultButtonsForCategory('invoice').map(({ id: _id, ...rest }) => rest),
-    },
-    confirm_summary: {
-      name: 'Paket Ringkasan Order',
-      content:
-        '🛒 *RINCIAN PESANAN*\n• *Produk:* {produkName}\n• *Varian:* {varian}\n• *Harga Normal:* Rp {price}\n\nPilih tombol di bawah untuk pakai promo atau langsung bayar.',
-      footer_text: getSuggestedFooterForCategory('confirm_summary'),
-      buttons: getDefaultButtonsForCategory('confirm_summary').map(({ id: _id, ...rest }) => rest),
-    },
-    confirm_promo_input: {
-      name: 'Paket Input Kode Promo',
-      content:
-        '🎟️ *MASUKKAN KODE PROMO*\nKetik kode promo Anda atau ketik *BATAL* untuk harga normal.',
-      footer_text: getSuggestedFooterForCategory('confirm_promo_input'),
-      buttons: [],
-    },
-    confirm_promo_valid: {
-      name: 'Paket Promo Valid',
-      content:
-        '🎉 *PROMO DITERIMA!*\nKode: *{promoCode}* (-Rp {discount})\nTotal Bayar: *Rp {finalPrice}*',
-      footer_text: getSuggestedFooterForCategory('confirm_promo_valid'),
-      buttons: [],
-    },
-    confirm_promo_invalid: {
-      name: 'Paket Promo Invalid',
-      content:
-        '⚠️ Kode promo *{promoCode}* tidak dapat digunakan ({reason}). Ketik kode lain atau *BATAL*.',
-      footer_text: getSuggestedFooterForCategory('confirm_promo_invalid'),
-      buttons: [],
-    },
-    payment_success_dm: {
-      name: 'Paket Transaksi Lunas DM',
-      content:
-        '🎉 *PEMBAYARAN LUNAS!*\nTerima kasih kak *{customerName}*, order #{orderId} sebesar *Rp {finalPrice}* telah lunas.',
-      footer_text: getSuggestedFooterForCategory('payment_success_dm'),
-      buttons: [],
-    },
-    payment_success_group: {
-      name: 'Paket Transaksi Lunas Grup',
-      content:
-        '✅ Pembayaran untuk *{produkName} ({varian})* oleh @{customerNumber} telah *LUNAS*!',
-      footer_text: getSuggestedFooterForCategory('payment_success_group'),
-      buttons: [],
-    },
-    payment_expired: {
-      name: 'Paket Invoice Kedaluwarsa',
-      content:
-        '⏰ Waktu pembayaran pesanan *{produkName} ({varian})* (Order #{orderId}) telah berakhir.',
-      footer_text: getSuggestedFooterForCategory('payment_expired'),
-      buttons: [],
-    },
-    payment_error: {
-      name: 'Paket Kendala Gateway',
-      content:
-        '⚠️ Terjadi kendala saat menerbitkan kode QRIS: {errorMessage}. Silakan hubungi admin.',
-      footer_text: getSuggestedFooterForCategory('payment_error'),
-      buttons: [],
-    },
-    order_group_notif: {
-      name: 'Paket Alur Order Grup',
-      content:
-        'Halo @{customerNumber}, rincian pesanan *{produkName} ({varian})* telah kami kirim ke DM Anda.',
-      footer_text: getSuggestedFooterForCategory('order_group_notif'),
-      buttons: [],
-    },
-    stock_empty: {
-      name: 'Paket Stok Kosong',
-      content:
-        'Maaf kak @{customerNumber}, stok produk *{produkName} ({varian})* sedang habis.',
-      footer_text: getSuggestedFooterForCategory('stock_empty'),
-      buttons: [],
-    },
-    checkout_session_expired: {
-      name: 'Paket Sesi Checkout Habis',
-      content:
-        '⏰ Sesi pesanan Anda telah berakhir. Silakan pilih varian kembali di katalog {storeName}.',
-      footer_text: getSuggestedFooterForCategory('checkout_session_expired'),
-      buttons: [],
-    },
-    promo_cancelled: {
-      name: 'Paket Kupon Dibatalkan',
-      content:
-        'Penggunaan kode promo dibatalkan. Menyiapkan invoice QRIS dengan harga normal (Rp {price})...',
-      footer_text: getSuggestedFooterForCategory('promo_cancelled'),
-      buttons: [],
-    },
-    contact_owner_empty: {
-      name: 'Paket Kontak Owner Kosong',
-      content: 'Informasi tentang owner belum diatur pada toko ini.',
-      footer_text: getSuggestedFooterForCategory('contact_owner_empty'),
-      buttons: [],
-    },
-    contact_admin_empty: {
-      name: 'Paket Kontak Admin Kosong',
-      content: 'Informasi tentang admin belum diatur pada toko ini.',
-      footer_text: getSuggestedFooterForCategory('contact_admin_empty'),
-      buttons: [],
-    },
-    expiry_warning_owner: {
-      name: 'Paket Peringatan Masa Sewa',
-      content:
-        '⚠️ *PERINGATAN MASA SEWA BOT*\nHalo *{ownerName}* (*{storeName}*), sisa masa aktif bot: *{remainingTime}* (berakhir {expiryDate} WIB).',
-      footer_text: getSuggestedFooterForCategory('expiry_warning_owner'),
-      buttons: [],
-    },
+    ),
+    list: buildEntry(
+      'list',
+      'Paket List Katalog',
+      '📋 *DAFTAR LAYANAN & HARGA {storeName}*\n\n{daftarProduk}\n\nSilakan pilih produk yang tersedia:',
+      getDefaultButtonsForCategory('list'),
+    ),
+    carousel: buildEntry(
+      'carousel',
+      'Paket Carousel Produk',
+      '🛍️ *PRODUK TERSEDIA*\nSilakan geser kartu di bawah untuk memilih varian:',
+      getDefaultButtonsForCategory('carousel'),
+    ),
+    invoice: buildEntry(
+      'invoice',
+      'Paket Invoice QRIS',
+      '🧾 *INVOICE PEMBAYARAN QRIS*\nHalo kak, pesanan varian *{varian}* untuk produk *{produkName}* telah diterbitkan!\n\n• *ID Order:* `{orderId}`\n• *Total Bayar:* *Rp {finalPrice}*',
+      getDefaultButtonsForCategory('invoice'),
+    ),
+    confirm_summary: buildEntry(
+      'confirm_summary',
+      'Paket Ringkasan Order',
+      '🛒 *RINCIAN PESANAN*\n• *Produk:* {produkName}\n• *Varian:* {varian}\n• *Harga Normal:* Rp {price}\n\nPilih tombol di bawah untuk pakai promo atau langsung bayar.',
+      getDefaultButtonsForCategory('confirm_summary'),
+    ),
+    confirm_promo_input: buildEntry(
+      'confirm_promo_input',
+      'Paket Input Kode Promo',
+      '🎟️ *MASUKKAN KODE PROMO*\nKetik kode promo Anda atau ketik *BATAL* untuk harga normal.',
+    ),
+    confirm_promo_valid: buildEntry(
+      'confirm_promo_valid',
+      'Paket Promo Valid',
+      '🎉 *PROMO DITERIMA!*\nKode: *{promoCode}* (-Rp {discount})\nTotal Bayar: *Rp {finalPrice}*',
+    ),
+    confirm_promo_invalid: buildEntry(
+      'confirm_promo_invalid',
+      'Paket Promo Invalid',
+      '⚠️ Kode promo *{promoCode}* tidak dapat digunakan ({reason}). Ketik kode lain atau *BATAL*.',
+    ),
+    payment_success_dm: buildEntry(
+      'payment_success_dm',
+      'Paket Transaksi Lunas DM',
+      '🎉 *PEMBAYARAN LUNAS!*\nTerima kasih kak *{customerName}*, order #{orderId} sebesar *Rp {finalPrice}* telah lunas.',
+    ),
+    payment_success_group: buildEntry(
+      'payment_success_group',
+      'Paket Transaksi Lunas Grup',
+      '✅ Pembayaran untuk *{produkName} ({varian})* oleh @{customerNumber} telah *LUNAS*!',
+    ),
+    payment_expired: buildEntry(
+      'payment_expired',
+      'Paket Invoice Kedaluwarsa',
+      '⏰ Waktu pembayaran pesanan *{produkName} ({varian})* (Order #{orderId}) telah berakhir.',
+    ),
+    payment_error: buildEntry(
+      'payment_error',
+      'Paket Kendala Gateway',
+      '⚠️ Terjadi kendala saat menerbitkan kode QRIS: {errorMessage}. Silakan hubungi admin.',
+    ),
+    order_group_notif: buildEntry(
+      'order_group_notif',
+      'Paket Alur Order Grup',
+      'Halo @{customerNumber}, rincian pesanan *{produkName} ({varian})* telah kami kirim ke DM Anda.',
+    ),
+    stock_empty: buildEntry(
+      'stock_empty',
+      'Paket Stok Kosong',
+      'Maaf kak @{customerNumber}, stok produk *{produkName} ({varian})* sedang habis.',
+    ),
+    checkout_session_expired: buildEntry(
+      'checkout_session_expired',
+      'Paket Sesi Checkout Habis',
+      '⏰ Sesi pesanan Anda telah berakhir. Silakan pilih varian kembali di katalog {storeName}.',
+    ),
+    promo_cancelled: buildEntry(
+      'promo_cancelled',
+      'Paket Kupon Dibatalkan',
+      'Penggunaan kode promo dibatalkan. Menyiapkan invoice QRIS dengan harga normal (Rp {price})...',
+    ),
+    contact_owner_empty: buildEntry(
+      'contact_owner_empty',
+      'Paket Kontak Owner Kosong',
+      'Informasi tentang owner belum diatur pada toko ini.',
+    ),
+    contact_admin_empty: buildEntry(
+      'contact_admin_empty',
+      'Paket Kontak Admin Kosong',
+      'Informasi tentang admin belum diatur pada toko ini.',
+    ),
+    expiry_warning_owner: buildEntry(
+      'expiry_warning_owner',
+      'Paket Peringatan Masa Sewa',
+      '⚠️ *PERINGATAN MASA SEWA BOT*\nHalo *{ownerName}* (*{storeName}*), sisa masa aktif bot: *{remainingTime}* (berakhir {expiryDate} WIB).',
+    ),
+    kick_anti_kudeta: buildEntry(
+      'kick_anti_kudeta',
+      'Paket AntiKudeta Grup',
+      '[AntiKudeta] @{pelakuNumber} terdeteksi mencoba mengeluarkan {ownerName} (Owner)',
+    ),
+    kick_bot_not_admin: buildEntry(
+      'kick_bot_not_admin',
+      'Paket Bot Bukan Admin',
+      '⚠️ *Bot Bukan Admin*\nBot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat mengeluarkan anggota.\n\nSilakan jadikan nomor bot sebagai admin grup terlebih dahulu.',
+    ),
+    kick_success: buildEntry(
+      'kick_success',
+      'Paket Berhasil Mengeluarkan Anggota',
+      '✅ @{targetNumber} berhasil dikeluarkan dari grup *{groupName}* oleh @{pelakuNumber}.',
+    ),
+    open_bot_not_admin: buildEntry(
+      'open_bot_not_admin',
+      'Paket Open: Bot Bukan Admin',
+      '⚠️ *Bot Bukan Admin*\nBot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat membuka pengaturan chat grup.\n\nSilakan jadikan nomor bot sebagai admin grup terlebih dahulu.',
+    ),
+    open_already: buildEntry(
+      'open_already',
+      'Paket Open: Grup Sudah Terbuka',
+      'ℹ️ Kondisi grup *{groupName}* saat ini sudah dalam keadaan terbuka (semua anggota dapat mengirim pesan).',
+    ),
+    open_success: buildEntry(
+      'open_success',
+      'Paket Open: Berhasil Buka Grup',
+      '🔓 Grup *{groupName}* berhasil dibuka oleh @{pelakuNumber}. Sekarang semua anggota dapat mengirim pesan.',
+    ),
+    close_bot_not_admin: buildEntry(
+      'close_bot_not_admin',
+      'Paket Close: Bot Bukan Admin',
+      '⚠️ *Bot Bukan Admin*\nBot belum menjadi admin di grup *{groupName}*, sehingga tidak dapat menutup pengaturan chat grup.\n\nSilakan jadikan nomor bot sebagai admin grup terlebih dahulu.',
+    ),
+    close_already: buildEntry(
+      'close_already',
+      'Paket Close: Grup Sudah Ditutup',
+      'ℹ️ Kondisi grup *{groupName}* saat ini sudah dalam keadaan ditutup (hanya admin yang dapat mengirim pesan).',
+    ),
+    close_success: buildEntry(
+      'close_success',
+      'Paket Close: Berhasil Tutup Grup',
+      '🔒 Grup *{groupName}* berhasil ditutup oleh @{pelakuNumber}. Sekarang hanya admin yang dapat mengirim pesan.',
+    ),
   };
 
   return formatGroupedJsonWithBlankLines(sample);
 }
-

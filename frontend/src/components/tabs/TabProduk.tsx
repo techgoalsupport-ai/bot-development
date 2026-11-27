@@ -96,7 +96,19 @@ export const TabProduk: React.FC<TabProdukProps> = ({
   promosState,
 }) => {
   // Sub-tab: Katalog Produk vs Kupon Promo (Opsi A)
-  const [activeSubTab, setActiveSubTab] = useState<'katalog' | 'promo'>('katalog');
+  const [activeSubTab, setActiveSubTabState] = useState<'katalog' | 'promo'>(() => {
+    try {
+      const saved = window.sessionStorage.getItem('wanzt_tenant_produk_subtab');
+      if (saved === 'promo' || saved === 'katalog') return saved;
+    } catch {}
+    return 'katalog';
+  });
+  const setActiveSubTab = (sub: 'katalog' | 'promo') => {
+    try {
+      window.sessionStorage.setItem('wanzt_tenant_produk_subtab', sub);
+    } catch {}
+    setActiveSubTabState(sub);
+  };
 
   // Pagination State for Premium Products Table
   const [currentPage, setCurrentPage] = useState<number>(1);

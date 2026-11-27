@@ -24,6 +24,7 @@ export function useBotConnection(
     logs: [],
     hasSession: false,
     isRegistered: false,
+    registered: false,
     accountStatus: 'active',
   });
 
@@ -133,11 +134,62 @@ export function useBotConnection(
     }
   };
 
+  const handleConnectSavedSession = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/bot/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ useSavedSession: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        showToast('Menghubungkan bot menggunakan sesi tersimpan...');
+        await refreshStatus();
+      } else {
+        if (data.suspended && onAccountStatusChanged) {
+          onAccountStatusChanged('suspended');
+        } else if (data.expired && onAccountStatusChanged) {
+          onAccountStatusChanged('expired');
+        }
+        showToast(data.error || 'Gagal menghubungkan bot');
+      }
+    } catch (err: any) {
+      showToast('Koneksi ke backend gagal: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReconnect = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/bot/reconnect', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        showToast('Memutuskan dan menghubungkan ulang bot...');
+        await refreshStatus();
+      } else {
+        if (data.suspended && onAccountStatusChanged) {
+          onAccountStatusChanged('suspended');
+        } else if (data.expired && onAccountStatusChanged) {
+          onAccountStatusChanged('expired');
+        }
+        showToast(data.error || 'Gagal menghubungkan ulang bot');
+      }
+    } catch (err: any) {
+      showToast('Koneksi ke backend gagal: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleStop = async () => {
     setLoading(true);
     try {
       await fetch('/api/bot/stop', { method: 'POST' });
       showToast('Koneksi bot dimatikan.');
+      await refreshStatus();
     } finally {
       setLoading(false);
     }
@@ -150,6 +202,7 @@ export function useBotConnection(
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         showToast('Sesi lama berhasil dibersihkan.');
+        await refreshStatus();
       } else {
         if (data.suspended && onAccountStatusChanged) {
           onAccountStatusChanged('suspended');
@@ -181,6 +234,8 @@ export function useBotConnection(
     copied,
     botData,
     handleStartPairing,
+    handleConnectSavedSession,
+    handleReconnect,
     handleStop,
     handleReset,
     handleCopyCode,

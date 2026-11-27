@@ -9,7 +9,7 @@ import {
   AlertCircle,
   Bot,
   Building2,
-  ExternalLink,
+  BookOpen,
 } from "lucide-react";
 
 interface LoginPageProps {
@@ -155,17 +155,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             </div>
           </form>
 
-          {/* Keamanan Footer Card */}
-          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-center gap-1.5 text-slate-400 text-xs">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Koneksi aman dengan enkripsi server PBKDF2</span>
+          {/* Akses Halaman Admin & Keamanan Footer Card */}
+          <div className="mt-5 pt-4 border-t border-slate-100 space-y-3">
+            <a
+              href="/admin"
+              data-testid="go-to-admin-btn"
+              className="w-full py-2.5 px-4 rounded-lg border border-slate-200 bg-slate-50/70 hover:bg-slate-100 hover:border-slate-300 text-slate-700 font-semibold text-xs transition-colors duration-150 flex items-center justify-center gap-2 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600/30"
+            >
+              <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
+              <span>Masuk ke Halaman Admin</span>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            </a>
+
+            <div className="flex items-center justify-center gap-1.5 text-slate-400 text-xs">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Koneksi aman dengan enkripsi server PBKDF2</span>
+            </div>
           </div>
         </div>
 
-        {/* Informasi Bantuan */}
-        <p className="text-center text-xs text-slate-400 mt-4">
-          Akun dashboard diberikan saat pembelian script bot.
-        </p>
+        {/* Informasi Bantuan & Dokumentasi Publik */}
+        <div className="text-center mt-4 space-y-2">
+          <p className="text-xs text-slate-400">
+            Akun dashboard diberikan saat pembelian script bot.
+          </p>
+          <a
+            href="/docs"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0084D1] hover:text-[#0073B7] transition-colors"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Buka Pusat Panduan &amp; Dokumentasi</span>
+          </a>
+        </div>
       </div>
     </div>
   );

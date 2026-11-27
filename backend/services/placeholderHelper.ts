@@ -24,6 +24,11 @@ export interface VariantPlaceholderContext {
   paymentUrl?: string;
   invoiceAdminUrl?: string;
   extendUrl?: string;
+  actorNumber?: string;
+  actorName?: string;
+  targetNumber?: string;
+  targetName?: string;
+  groupName?: string;
 }
 
 /**
@@ -234,6 +239,31 @@ export function resolvePlaceholders(
 
     if (variant.extendUrl !== undefined) {
       res = res.replace(/\{extendUrl\}/gi, variant.extendUrl);
+    }
+
+    // 5. Placeholder Moderasi & Keamanan Grup (Kick & AntiKudeta)
+    const actorNum = variant.actorNumber ?? variant.senderNumber;
+    if (actorNum !== undefined) {
+      res = res.replace(
+        /\{pelakuNumber\}|\{actorNumber\}|\{adminPelaku\}/gi,
+        actorNum,
+      );
+    }
+    const actorNm = variant.actorName ?? variant.senderName;
+    if (actorNm !== undefined) {
+      res = res.replace(/\{pelakuName\}|\{actorName\}/gi, actorNm);
+    }
+    if (variant.targetNumber !== undefined) {
+      res = res.replace(
+        /\{targetNumber\}|\{nomerTarget\}|\{nomorTarget\}/gi,
+        variant.targetNumber,
+      );
+    }
+    if (variant.targetName !== undefined) {
+      res = res.replace(/\{targetName\}|\{namaTarget\}/gi, variant.targetName);
+    }
+    if (variant.groupName !== undefined) {
+      res = res.replace(/\{groupName\}|\{namaGrup\}/gi, variant.groupName);
     }
   }
 
