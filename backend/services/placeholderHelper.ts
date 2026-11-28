@@ -29,6 +29,12 @@ export interface VariantPlaceholderContext {
   targetNumber?: string;
   targetName?: string;
   groupName?: string;
+  credentials?: string;
+  accountEmail?: string;
+  accountPassword?: string;
+  supplierOrderId?: string;
+  supplierStatus?: string;
+  supplierError?: string;
 }
 
 /**
@@ -121,10 +127,10 @@ export function resolvePlaceholders(
       .replace(/Rp\s*\{price\}|Rp\s*\{harga\}/gi, `Rp ${formattedPriceNum}`)
       .replace(/\{price\}|\{harga\}/gi, formattedPriceNum)
       .replace(
-        /Rp\s*\{total\}|Rp\s*\{totalBayar\}/gi,
+        /Rp\s*\{total\}|Rp\s*\{totalBayar\}|Rp\s*\{totalPrice\}/gi,
         `Rp ${formattedTotalNum}`,
       )
-      .replace(/\{total\}|\{totalBayar\}/gi, formattedTotalNum)
+      .replace(/\{total\}|\{totalBayar\}|\{totalPrice\}/gi, formattedTotalNum)
       .replace(/\{produkName\}|\{productName\}/gi, variant.name || "")
       .replace(/\{category\}|\{kategori\}/gi, (variant.category || "").trim())
       .replace(/\{varian\}|\{variant\}/gi, variant.variant || "")
@@ -264,6 +270,41 @@ export function resolvePlaceholders(
     }
     if (variant.groupName !== undefined) {
       res = res.replace(/\{groupName\}|\{namaGrup\}/gi, variant.groupName);
+    }
+
+    // 6. Placeholder Kredensial Akun & Status Order Supplier Xaviera
+    if (variant.credentials !== undefined) {
+      res = res.replace(
+        /\{credentials\}|\{accountDetails\}|\{akun\}|\{kredensial\}|\{dataAkun\}/gi,
+        variant.credentials,
+      );
+    }
+    if (variant.accountEmail !== undefined) {
+      res = res.replace(
+        /\{accountEmail\}|\{emailAkun\}|\{email\}/gi,
+        variant.accountEmail,
+      );
+    }
+    if (variant.accountPassword !== undefined) {
+      res = res.replace(
+        /\{accountPassword\}|\{passwordAkun\}|\{password\}/gi,
+        variant.accountPassword,
+      );
+    }
+    if (variant.supplierOrderId !== undefined) {
+      res = res.replace(
+        /\{supplierOrderId\}|\{xavieraOrderId\}/gi,
+        variant.supplierOrderId,
+      );
+    }
+    if (variant.supplierStatus !== undefined) {
+      res = res.replace(/\{supplierStatus\}/gi, variant.supplierStatus);
+    }
+    if (variant.supplierError !== undefined) {
+      res = res.replace(
+        /\{supplierError\}|\{deliveryError\}/gi,
+        variant.supplierError,
+      );
     }
   }
 

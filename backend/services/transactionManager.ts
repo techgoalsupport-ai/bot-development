@@ -21,6 +21,12 @@ export interface TransactionRecord {
   status: 'pending' | 'paid' | 'cancel';
   paymentUrl?: string;
   promoId?: number | null;
+  xavieraProductId?: string;
+  xavieraVariantId?: string;
+  supplierOrderId?: string;
+  supplierStatus?: '' | 'processing' | 'fulfilled' | 'failed';
+  credentialsJson?: string;
+  deliveryError?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,6 +65,12 @@ interface DbTransactionRow {
   status: string;
   payment_url: string | null;
   promo_id: number | null;
+  xaviera_product_id?: string | null;
+  xaviera_variant_id?: string | null;
+  supplier_order_id?: string | null;
+  supplier_status?: string | null;
+  credentials_json?: string | null;
+  delivery_error?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -129,6 +141,12 @@ function mapRowToRecord(row: DbTransactionRow): TransactionRecord {
     status: (row.status as any) || 'pending',
     paymentUrl: sanitizeHttpsPaymentUrl(row.payment_url),
     promoId: row.promo_id ?? null,
+    xavieraProductId: (row.xaviera_product_id || '').trim(),
+    xavieraVariantId: (row.xaviera_variant_id || '').trim(),
+    supplierOrderId: (row.supplier_order_id || '').trim(),
+    supplierStatus: ((row.supplier_status || '').trim() as any) || '',
+    credentialsJson: row.credentials_json || '',
+    deliveryError: row.delivery_error || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -170,6 +188,8 @@ export function recordTransaction(data: {
   discountAmount?: number;
   paymentUrl?: string;
   promoId?: number | null;
+  xavieraProductId?: string;
+  xavieraVariantId?: string;
   status?: 'pending' | 'paid' | 'cancel';
 }): TransactionRecord {
   const now = new Date().toISOString();
@@ -179,6 +199,8 @@ export function recordTransaction(data: {
   const promoId = data.promoId ? Number(data.promoId) : null;
   const customerName = data.customerName || `Pelanggan-${cleanNumber.slice(-4)}`;
   const category = (data.category || '').trim();
+  const xavieraProductId = (data.xavieraProductId || '').trim();
+  const xavieraVariantId = (data.xavieraVariantId || '').trim();
   const safePaymentUrl = sanitizeHttpsPaymentUrl(data.paymentUrl);
   const financials = computeTransactionProfit({
     nominal: data.nominal,
@@ -212,6 +234,8 @@ export function recordTransaction(data: {
             status = ?,
             payment_url = ?,
             promo_id = COALESCE(?, promo_id),
+            xaviera_product_id = CASE WHEN ? != '' THEN ? ELSE xaviera_product_id END,
+            xaviera_variant_id = CASE WHEN ? != '' THEN ? ELSE xaviera_variant_id END,
             updated_at = ?
         WHERE id = ?
       `).run(
@@ -232,6 +256,10 @@ export function recordTransaction(data: {
         status,
         safePaymentUrl || sanitizeHttpsPaymentUrl(existing.payment_url),
         promoId,
+        xavieraProductId,
+        xavieraProductId,
+        xavieraVariantId,
+        xavieraVariantId,
         now,
         existing.id
       );
@@ -255,6 +283,8 @@ export function recordTransaction(data: {
         status,
         paymentUrl: safePaymentUrl || sanitizeHttpsPaymentUrl(existing.payment_url),
         promoId: promoId ?? existing.promo_id ?? null,
+        xavieraProductId: xavieraProductId || (existing.xaviera_product_id || '').trim(),
+        xavieraVariantId: xavieraVariantId || (existing.xaviera_variant_id || '').trim(),
         createdAt: existing.created_at,
         updatedAt: now,
       };
@@ -264,8 +294,9 @@ export function recordTransaction(data: {
           id, order_id, trx_id, customer_number, customer_name,
           product_name, variant_name, category, nominal, unique_code, total,
           selling_price, cost_price, discount_amount, profit,
-          status, payment_url, promo_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          status, payment_url, promo_id, xaviera_product_id, xaviera_variant_id,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         data.orderId,
@@ -285,6 +316,8 @@ export function recordTransaction(data: {
         status,
         safePaymentUrl,
         promoId,
+        xavieraProductId,
+        xavieraVariantId,
         now,
         now
       );
@@ -308,6 +341,8 @@ export function recordTransaction(data: {
         status,
         paymentUrl: safePaymentUrl,
         promoId,
+        xavieraProductId,
+        xavieraVariantId,
         createdAt: now,
         updatedAt: now,
       };
@@ -598,6 +633,119 @@ export function applyLunasQrisWebhookUpdate(params: {
   } catch (err) {
     console.error('Gagal memproses webhook transaksi di SQLite:', err);
     return { ok: false, reason: 'db_error' };
+  }
+}
+
+export function getTransactionByOrderId(orderId: string): TransactionRecord | null {
+  if (!orderId) return null;
+  try {
+    const row = db
+      .prepare('SELECT * FROM transactions WHERE order_id = ? OR id = ?')
+      .get(orderId, orderId) as DbTransactionRow | undefined;
+    return row ? mapRowToRecord(row) : null;
+  } catch (err) {
+    console.error('Gagal membaca transaksi by order_id:', err);
+    return null;
+  }
+}
+
+/**
+ * Mengklaim eksekusi pemenuhan order ke supplier Xaviera secara atomik agar tidak pernah double-order.
+ */
+export function claimTransactionFulfillment(orderId: string): {
+  claimed: boolean;
+  existing?: TransactionRecord;
+  reason?: 'not_found' | 'already_fulfilled' | 'in_progress';
+} {
+  if (!orderId) return { claimed: false, reason: 'not_found' };
+  const now = new Date().toISOString();
+  try {
+    return db.transaction(() => {
+      const existing = db
+        .prepare('SELECT * FROM transactions WHERE order_id = ? OR id = ?')
+        .get(orderId, orderId) as DbTransactionRow | undefined;
+
+      if (!existing) {
+        return { claimed: false as const, reason: 'not_found' as const };
+      }
+      const status = (existing.supplier_status || '').trim();
+      if (status === 'fulfilled') {
+        return {
+          claimed: false as const,
+          existing: mapRowToRecord(existing),
+          reason: 'already_fulfilled' as const,
+        };
+      }
+      if (status === 'processing') {
+        return {
+          claimed: false as const,
+          existing: mapRowToRecord(existing),
+          reason: 'in_progress' as const,
+        };
+      }
+
+      const upd = db
+        .prepare(
+          `UPDATE transactions
+           SET supplier_status = 'processing', updated_at = ?
+           WHERE id = ? AND (supplier_status = '' OR supplier_status IS NULL OR supplier_status = 'failed')`
+        )
+        .run(now, existing.id);
+
+      if (upd.changes !== 1) {
+        return {
+          claimed: false as const,
+          existing: mapRowToRecord(existing),
+          reason: 'in_progress' as const,
+        };
+      }
+
+      return {
+        claimed: true as const,
+        existing: mapRowToRecord(existing),
+      };
+    })();
+  } catch (err) {
+    console.error('Gagal mengklaim fulfillment transaksi:', err);
+    return { claimed: false, reason: 'in_progress' };
+  }
+}
+
+/**
+ * Menyimpan hasil eksekusi order supplier Xaviera (ID order, kredensial akun, atau pesan error).
+ */
+export function completeTransactionFulfillment(
+  orderId: string,
+  result: {
+    supplierOrderId?: string;
+    supplierStatus: 'fulfilled' | 'failed';
+    credentials?: unknown[];
+    deliveryError?: string;
+  }
+): void {
+  if (!orderId) return;
+  const now = new Date().toISOString();
+  try {
+    const credentialsJson = result.credentials ? JSON.stringify(result.credentials) : '';
+    db.prepare(
+      `UPDATE transactions
+       SET supplier_order_id = ?,
+           supplier_status = ?,
+           credentials_json = ?,
+           delivery_error = ?,
+           updated_at = ?
+       WHERE order_id = ? OR id = ?`
+    ).run(
+      (result.supplierOrderId || '').trim(),
+      result.supplierStatus,
+      credentialsJson,
+      (result.deliveryError || '').trim(),
+      now,
+      orderId,
+      orderId
+    );
+  } catch (err) {
+    console.error('Gagal menyimpan hasil fulfillment transaksi:', err);
   }
 }
 

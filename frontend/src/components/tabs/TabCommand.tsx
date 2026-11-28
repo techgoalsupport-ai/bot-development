@@ -1293,7 +1293,7 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onChangeText={setPaymentSuccessDmText}
               textRows={6}
               textPlaceholder="Tulis format pesan pembayaran lunas DM di sini..."
-              variableTags={['{customerName}', '{customerNumber}', '{orderId}', '{produkName}', '{varian}', '{totalPrice}', '{paymentExpiry}', '{storeName}']}
+              variableTags={['{customerName}', '{customerNumber}', '{orderId}', '{produkName}', '{varian}', '{totalPrice}', '{paymentExpiry}', '{credentials}', '{accountEmail}', '{accountPassword}', '{supplierOrderId}', '{storeName}']}
               onInsertVariable={(ph) => insertTag(ph, paymentSuccessDmText, setPaymentSuccessDmText)}
               footerLabel="Teks Footer DM Lunas"
               footerValue={paymentSuccessDmFooter}
@@ -1304,7 +1304,7 @@ export const TabCommand: React.FC<TabCommandProps> = ({
                 openTemplatePicker('payment_success_dm', 'Transaksi Lunas (DM)', paymentSuccessDmText, setPaymentSuccessDmText, setPaymentSuccessDmFooter)
               }
               onResetDefault={() => {
-                setPaymentSuccessDmText('🎉 *PEMBAYARAN DITERIMA & LUNAS!*\nTerima kasih kak *{customerName}*, pembayaran untuk pesanan Anda berhasil diverifikasi otomatis.\n\n📦 *Detail Transaksi:*\n• *Order ID:* `{orderId}`\n• *Produk:* {produkName}\n• *Varian:* {varian}\n• *Total Bayar:* Rp {totalPrice}\n• *Waktu:* {paymentExpiry}\n\nDetail akun / layanan Anda akan diproses dan dikirimkan segera di bawah ini.');
+                setPaymentSuccessDmText('🎉 *PEMBAYARAN DITERIMA & LUNAS!*\nTerima kasih kak *{customerName}*, pembayaran untuk pesanan Anda berhasil diverifikasi otomatis.\n\n📦 *Detail Transaksi:*\n• *Order ID:* `{orderId}`\n• *Produk:* {produkName}\n• *Varian:* {varian}\n• *Total Bayar:* Rp {totalPrice}\n• *Waktu:* {paymentExpiry}\n\n🔐 *Detail Akun / Kredensial Anda:*\n{credentials}\n\nSimpan data akun di atas dengan baik. ID Order Supplier: `{supplierOrderId}`');
                 showToast('Template lunas DM direset ke default');
               }}
               onAddButton={onOpenAddButtonModal}
@@ -1327,7 +1327,7 @@ export const TabCommand: React.FC<TabCommandProps> = ({
               onChangeText={setPaymentSuccessGroupText}
               textRows={6}
               textPlaceholder="Tulis format pengumuman lunas grup di sini..."
-              variableTags={['{customerNumber}', '{orderId}', '{produkName}', '{varian}', '{totalPrice}', '{storeName}']}
+              variableTags={['{customerNumber}', '{orderId}', '{supplierOrderId}', '{produkName}', '{varian}', '{totalPrice}', '{storeName}']}
               onInsertVariable={(ph) => insertTag(ph, paymentSuccessGroupText, setPaymentSuccessGroupText)}
               footerLabel="Teks Footer Grup Lunas"
               footerValue={paymentSuccessGroupFooter}

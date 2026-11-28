@@ -124,6 +124,12 @@ function applyTenantSchema(db: Database.Database): void {
       status TEXT NOT NULL DEFAULT 'pending',
       payment_url TEXT NOT NULL DEFAULT '',
       promo_id INTEGER,
+      xaviera_product_id TEXT NOT NULL DEFAULT '',
+      xaviera_variant_id TEXT NOT NULL DEFAULT '',
+      supplier_order_id TEXT NOT NULL DEFAULT '',
+      supplier_status TEXT NOT NULL DEFAULT '',
+      credentials_json TEXT NOT NULL DEFAULT '',
+      delivery_error TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -213,6 +219,12 @@ function applyTenantSchema(db: Database.Database): void {
       ['cost_price', 'INTEGER NOT NULL DEFAULT 0'],
       ['discount_amount', 'INTEGER NOT NULL DEFAULT 0'],
       ['profit', 'INTEGER NOT NULL DEFAULT 0'],
+      ['xaviera_product_id', "TEXT NOT NULL DEFAULT ''"],
+      ['xaviera_variant_id', "TEXT NOT NULL DEFAULT ''"],
+      ['supplier_order_id', "TEXT NOT NULL DEFAULT ''"],
+      ['supplier_status', "TEXT NOT NULL DEFAULT ''"],
+      ['credentials_json', "TEXT NOT NULL DEFAULT ''"],
+      ['delivery_error', "TEXT NOT NULL DEFAULT ''"],
     ];
     for (const [colName, colDef] of missingColumns) {
       if (!existingCols.has(colName)) {

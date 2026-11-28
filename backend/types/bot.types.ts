@@ -91,6 +91,8 @@ export type ResponseExtrasMap = Partial<Record<ResponseConfigKey, ResponseExtraC
 
 export interface ProductVariantItem {
   id: string;
+  productId?: string;
+  xavieraVariantId?: string;
   name: string;
   variant: string;
   stock: number;

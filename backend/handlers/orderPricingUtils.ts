@@ -13,6 +13,8 @@ export type OrderResolutionResult =
       productName: string;
       variantName: string;
       variantId: string;
+      xavieraProductId: string;
+      xavieraVariantId: string;
       costPrice: number;
       sellingPrice: number;
       initialMargin: number;
@@ -154,6 +156,8 @@ export async function resolveAuthoritativeOrderItem(
     productName: officialProductName,
     variantName: officialVariantName,
     variantId,
+    xavieraProductId: (matched.productId || matched.id || '').trim(),
+    xavieraVariantId: (matched.xavieraVariantId || '').trim(),
     costPrice: Math.round(costPrice),
     sellingPrice: Math.round(sellingCalc.sellingPrice),
     initialMargin: Math.max(0, Math.round(sellingCalc.margin)),

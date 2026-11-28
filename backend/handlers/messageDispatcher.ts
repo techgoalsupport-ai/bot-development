@@ -35,6 +35,11 @@ import {
   recordTransaction,
   updateTransactionStatus,
 } from "../services/transactionManager.ts";
+import {
+  fulfillXavieraOrderForTransaction,
+  buildPaymentSuccessDmMessage,
+} from "../services/orderFulfillmentService.ts";
+import { getActiveTenantId, runWithTenant } from "../database/tenantContext.ts";
 import { resolveAuthoritativeOrderItem } from "./orderPricingUtils.ts";
 import {
   DEFAULT_INVOICE_TEMPLATE,
@@ -107,6 +112,8 @@ export interface CheckoutSession {
   costPrice: number;
   initialMargin: number;
   variantId?: string;
+  xavieraProductId?: string;
+  xavieraVariantId?: string;
   category?: string;
   createdAt: number;
   expiresAt: number; // 3 menit
@@ -126,6 +133,8 @@ export interface ExecuteInvoiceParams {
   isGroup: boolean;
   productName: string;
   variantName: string;
+  xavieraProductId?: string;
+  xavieraVariantId?: string;
   category?: string;
   price: number;
   costPrice?: number;
@@ -151,6 +160,8 @@ export async function executeLunasQrisInvoice(
     isGroup,
     productName,
     variantName,
+    xavieraProductId,
+    xavieraVariantId,
     category: xavieraCategory,
     price,
     costPrice,
@@ -161,6 +172,7 @@ export async function executeLunasQrisInvoice(
     promoReserved: preReserved = false,
     deps,
   } = params;
+  const activeTenantId = (sock as any)?.tenantId || getActiveTenantId();
 
   const effectiveAmount =
     finalPrice !== undefined && finalPrice > 0 ? finalPrice : price;
@@ -335,6 +347,8 @@ export async function executeLunasQrisInvoice(
       discountAmount: discountAmount || 0,
       paymentUrl: trxData.payment_url,
       promoId: promoReserved && promoId ? promoId : null,
+      xavieraProductId,
+      xavieraVariantId,
       status: "pending",
     });
   } catch (dbErr: any) {
@@ -360,105 +374,152 @@ export async function executeLunasQrisInvoice(
       apiKey: lunasKey,
       baseUrl: lunasBase,
       onPaid: async () => {
-        try {
-          updateTransactionStatus(orderId, "paid");
-        } catch {}
+        await runWithTenant(activeTenantId, async () => {
+          try {
+            updateTransactionStatus(orderId, "paid");
+          } catch {}
 
-        const paidCtx = {
-          name: productName,
-          variant: variantName,
-          orderId,
-          price: trxData.total_amount,
-          total: trxData.total_amount,
-          customerName: senderName,
-          customerNumber: senderCleanNumber,
-          paymentUrl: trxData.payment_url || "",
-        };
-
-        const paidTpl =
-          config.paymentSuccessDmText || DEFAULT_PAYMENT_SUCCESS_DM_TEMPLATE;
-        const paidFooterTpl =
-          config.paymentSuccessDmFooter ??
-          DEFAULT_CONFIG.paymentSuccessDmFooter ??
-          "";
-        const paidMsg = resolvePlaceholders(paidTpl, config, paidCtx);
-        const paidFooter = resolvePlaceholders(paidFooterTpl, config, paidCtx);
-        try {
-          await sendConfiguredBotMessage({
-            sock,
+          const fulfillment = await fulfillXavieraOrderForTransaction({
+            orderId,
             config,
-            responseKey: "payment_success_dm",
-            targetJid: senderJid,
-            text: paidMsg,
-            footerText: paidFooter,
-            ctx: paidCtx,
+            productName,
+            variantName,
+            xavieraProductId,
+            xavieraVariantId,
             addLog: deps.addLog,
           });
-        } catch {}
 
-        if (isGroup && remoteJid) {
-          try {
-            const grpPaidTpl =
-              config.paymentSuccessGroupText ||
-              DEFAULT_PAYMENT_SUCCESS_GROUP_TEMPLATE;
-            const grpPaidFooterTpl =
-              config.paymentSuccessGroupFooter ??
-              DEFAULT_CONFIG.paymentSuccessGroupFooter ??
-              "";
-            const grpPaid = resolvePlaceholders(grpPaidTpl, config, paidCtx);
-            const grpPaidFooter = resolvePlaceholders(
-              grpPaidFooterTpl,
-              config,
-              paidCtx,
-            );
-            await sendConfiguredBotMessage({
-              sock,
-              config,
-              responseKey: "payment_success_group",
-              targetJid: remoteJid,
-              text: grpPaid,
-              footerText: grpPaidFooter,
-              ctx: paidCtx,
-              mentions: [senderJid],
-              addLog: deps.addLog,
-            });
-          } catch {}
-        }
-      },
-      onExpired: async () => {
-        try {
-          updateTransactionStatus(orderId, "cancel");
-        } catch {}
-        try {
-          const expCtx = {
+          const paidTimeWib =
+            new Date().toLocaleString("id-ID", {
+              timeZone: "Asia/Jakarta",
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }) + " WIB";
+
+          const paidCtx = {
             name: productName,
             variant: variantName,
             orderId,
-            price: effectiveAmount,
-            total: effectiveAmount,
+            price: trxData.total_amount,
+            total: trxData.total_amount,
+            finalPrice: effectiveAmount,
             customerName: senderName,
             customerNumber: senderCleanNumber,
             paymentUrl: trxData.payment_url || "",
+            expiryDate: paidTimeWib,
+            credentials: fulfillment.credentialsText,
+            accountEmail: fulfillment.accountEmail,
+            accountPassword: fulfillment.accountPassword,
+            supplierOrderId: fulfillment.supplierOrderId || "-",
+            supplierStatus: fulfillment.status,
+            supplierError: fulfillment.error || "",
           };
-          const expTpl =
-            config.paymentExpiredText || DEFAULT_PAYMENT_EXPIRED_TEMPLATE;
-          const expFooterTpl =
-            config.paymentExpiredFooter ??
-            DEFAULT_CONFIG.paymentExpiredFooter ??
+
+          const paidTpl =
+            config.paymentSuccessDmText || DEFAULT_PAYMENT_SUCCESS_DM_TEMPLATE;
+          const paidFooterTpl =
+            config.paymentSuccessDmFooter ??
+            DEFAULT_CONFIG.paymentSuccessDmFooter ??
             "";
-          const expMsg = resolvePlaceholders(expTpl, config, expCtx);
-          const expFooter = resolvePlaceholders(expFooterTpl, config, expCtx);
-          await sendConfiguredBotMessage({
-            sock,
+          const paidMsg = buildPaymentSuccessDmMessage(
+            paidTpl,
             config,
-            responseKey: "payment_expired",
-            targetJid: senderJid,
-            text: expMsg,
-            footerText: expFooter,
-            ctx: expCtx,
-            addLog: deps.addLog,
-          });
-        } catch {}
+            paidCtx,
+            fulfillment,
+          );
+          const paidFooter = resolvePlaceholders(paidFooterTpl, config, paidCtx);
+          try {
+            await sendConfiguredBotMessage({
+              sock,
+              config,
+              responseKey: "payment_success_dm",
+              targetJid: senderJid,
+              text: paidMsg,
+              footerText: paidFooter,
+              ctx: paidCtx,
+              addLog: deps.addLog,
+            });
+          } catch {}
+
+          if (isGroup && remoteJid) {
+            try {
+              const groupSafeCtx = {
+                ...paidCtx,
+                credentials: "",
+                accountEmail: "",
+                accountPassword: "",
+              };
+              const grpPaidTpl =
+                config.paymentSuccessGroupText ||
+                DEFAULT_PAYMENT_SUCCESS_GROUP_TEMPLATE;
+              const grpPaidFooterTpl =
+                config.paymentSuccessGroupFooter ??
+                DEFAULT_CONFIG.paymentSuccessGroupFooter ??
+                "";
+              const grpPaid = resolvePlaceholders(
+                grpPaidTpl,
+                config,
+                groupSafeCtx,
+              );
+              const grpPaidFooter = resolvePlaceholders(
+                grpPaidFooterTpl,
+                config,
+                groupSafeCtx,
+              );
+              await sendConfiguredBotMessage({
+                sock,
+                config,
+                responseKey: "payment_success_group",
+                targetJid: remoteJid,
+                text: grpPaid,
+                footerText: grpPaidFooter,
+                ctx: groupSafeCtx,
+                mentions: [senderJid],
+                addLog: deps.addLog,
+              });
+            } catch {}
+          }
+        });
+      },
+      onExpired: async () => {
+        await runWithTenant(activeTenantId, async () => {
+          try {
+            updateTransactionStatus(orderId, "cancel");
+          } catch {}
+          try {
+            const expCtx = {
+              name: productName,
+              variant: variantName,
+              orderId,
+              price: effectiveAmount,
+              total: effectiveAmount,
+              customerName: senderName,
+              customerNumber: senderCleanNumber,
+              paymentUrl: trxData.payment_url || "",
+            };
+            const expTpl =
+              config.paymentExpiredText || DEFAULT_PAYMENT_EXPIRED_TEMPLATE;
+            const expFooterTpl =
+              config.paymentExpiredFooter ??
+              DEFAULT_CONFIG.paymentExpiredFooter ??
+              "";
+            const expMsg = resolvePlaceholders(expTpl, config, expCtx);
+            const expFooter = resolvePlaceholders(expFooterTpl, config, expCtx);
+            await sendConfiguredBotMessage({
+              sock,
+              config,
+              responseKey: "payment_expired",
+              targetJid: senderJid,
+              text: expMsg,
+              footerText: expFooter,
+              ctx: expCtx,
+              addLog: deps.addLog,
+            });
+          } catch {}
+        });
       },
     },
     deps.addLog,
@@ -931,6 +992,8 @@ export async function dispatchIncomingMessages(
         costPrice,
         initialMargin,
         variantId,
+        xavieraProductId: resolvedOrder.xavieraProductId,
+        xavieraVariantId: resolvedOrder.xavieraVariantId,
         category: resolvedOrder.category,
         createdAt: Date.now(),
         expiresAt: Date.now() + CHECKOUT_SESSION_TIMEOUT_MS,
@@ -1216,6 +1279,8 @@ export async function dispatchIncomingMessages(
         isGroup: Boolean(session.groupJid),
         productName: session.productName,
         variantName: session.variantName,
+        xavieraProductId: session.xavieraProductId,
+        xavieraVariantId: session.xavieraVariantId,
         category: session.category,
         price: session.price,
         costPrice: session.costPrice,
@@ -1890,6 +1955,8 @@ export async function dispatchIncomingMessages(
           isGroup: Boolean(activeSession.groupJid),
           productName: activeSession.productName,
           variantName: activeSession.variantName,
+          xavieraProductId: activeSession.xavieraProductId,
+          xavieraVariantId: activeSession.xavieraVariantId,
           category: activeSession.category,
           price: activeSession.price,
           costPrice: activeSession.costPrice,

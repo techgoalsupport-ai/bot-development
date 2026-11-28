@@ -132,9 +132,12 @@ export const DEFAULT_CONFIRMATION_CONFIG: ConfirmationCommandConfig = {
 // --- Default Templates Respon Transaksi, Notifikasi & Kontak Baru ---
 export const DEFAULT_PAYMENT_SUCCESS_DM_TEMPLATE = `🎉 *PEMBAYARAN DITERIMA & LUNAS!*
 
-Terima kasih Kak *{customerName}*, pembayaran untuk pesanan *{produkName} ({varian})* sebesar *Rp {total}* (Order ID: #{orderId}) telah diverifikasi lunas oleh sistem LunasQRIS.
+Terima kasih Kak *{customerName}*, pembayaran untuk pesanan *{produkName} ({varian})* sebesar *Rp {total}* (Order ID: \`{orderId}\`) telah diverifikasi lunas oleh sistem LunasQRIS.
 
-Pesanan Anda akan segera diproses oleh sistem atau admin kami.`;
+🔐 *Detail Akun / Kredensial Anda:*
+{credentials}
+
+Simpan data akun di atas dengan baik. Jika ada kendala login, silakan hubungi admin kami dengan menyertakan ID Order Supplier \`{supplierOrderId}\`.`;
 
 export const DEFAULT_PAYMENT_SUCCESS_GROUP_TEMPLATE = `✅ Pembayaran untuk *{produkName} ({varian})* oleh @{customerNumber} telah *LUNAS*! Pesanan sedang diproses.`;
 

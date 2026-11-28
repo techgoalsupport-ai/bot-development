@@ -748,7 +748,7 @@ export function buildSampleMultiCategoryJson(): string {
     payment_success_dm: buildEntry(
       'payment_success_dm',
       'Paket Transaksi Lunas DM',
-      '🎉 *PEMBAYARAN LUNAS!*\nTerima kasih kak *{customerName}*, order #{orderId} sebesar *Rp {finalPrice}* telah lunas.',
+      '🎉 *PEMBAYARAN LUNAS!*\nTerima kasih kak *{customerName}*, order #{orderId} sebesar *Rp {finalPrice}* telah lunas.\n\n🔐 *Detail Akun / Kredensial Anda:*\n{credentials}\n\nID Supplier: `{supplierOrderId}`',
     ),
     payment_success_group: buildEntry(
       'payment_success_group',

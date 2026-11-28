@@ -107,7 +107,7 @@ export function useStoreConfig(
 
   // Transaksi State
   const [paymentSuccessDmText, setPaymentSuccessDmText] = useState<string>(
-    '🎉 *PEMBAYARAN DITERIMA & LUNAS!*\nTerima kasih kak *{customerName}*, pembayaran untuk pesanan Anda berhasil diverifikasi otomatis.\n\n📦 *Detail Transaksi:*\n• *Order ID:* `{orderId}`\n• *Produk:* {produkName}\n• *Varian:* {varian}\n• *Total Bayar:* Rp {totalPrice}\n• *Waktu:* {paymentExpiry}\n\nDetail akun / layanan Anda akan diproses dan dikirimkan segera di bawah ini.'
+    '🎉 *PEMBAYARAN DITERIMA & LUNAS!*\nTerima kasih kak *{customerName}*, pembayaran untuk pesanan Anda berhasil diverifikasi otomatis.\n\n📦 *Detail Transaksi:*\n• *Order ID:* `{orderId}`\n• *Produk:* {produkName}\n• *Varian:* {varian}\n• *Total Bayar:* Rp {totalPrice}\n• *Waktu:* {paymentExpiry}\n\n🔐 *Detail Akun / Kredensial Anda:*\n{credentials}\n\nSimpan data akun di atas dengan baik. ID Order Supplier: `{supplierOrderId}`'
   );
   const [paymentSuccessDmFooter, setPaymentSuccessDmFooter] = useState<string>('{storeName} • Layanan Otomatis 24/7');
   const [paymentSuccessGroupText, setPaymentSuccessGroupText] = useState<string>(

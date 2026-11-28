@@ -667,6 +667,8 @@ export async function getProductVariants(
 
                   resultVariants.push({
                     id: v.id || v.code || `var-${crypto.randomBytes(3).toString('hex')}`,
+                    productId: item.id !== undefined && item.id !== null ? String(item.id) : undefined,
+                    xavieraVariantId: v.id !== undefined && v.id !== null ? String(v.id) : undefined,
                     name: pName,
                     variant: v.name || v.variant || `${pName} Varian`,
                     stock: stockNum,
@@ -682,8 +684,17 @@ export async function getProductVariants(
                 else if (typeof item.buyer_product_status === 'boolean') stockNum = item.buyer_product_status ? 25 : 0;
                 else if (item.status && item.status.toString().toLowerCase().includes('empty')) stockNum = 0;
 
+                const resolvedParentId =
+                  item.id !== undefined && item.id !== null
+                    ? String(item.id)
+                    : item.code !== undefined && item.code !== null
+                      ? String(item.code)
+                      : undefined;
+
                 resultVariants.push({
                   id: item.code || item.id || `var-${crypto.randomBytes(3).toString('hex')}`,
+                  productId: resolvedParentId,
+                  xavieraVariantId: undefined,
                   name: item.brand || item.name || productName,
                   variant: item.name || item.product_name || `${productName} Varian`,
                   stock: stockNum,
@@ -743,5 +754,304 @@ export async function checkXavieraBalance(
     return { sufficient: true, currentBalance: 0, error: err?.message };
   }
 }
+
+export interface XavieraCredentialItem {
+  email?: string;
+  password?: string;
+  [key: string]: unknown;
+}
+
+export interface XavieraProductOrderResponse {
+  success: boolean;
+  status?: number;
+  order?: {
+    id: string;
+    productName: string;
+    credentials: XavieraCredentialItem[];
+    total: number;
+  };
+  saldo?: number;
+  error?: string;
+}
+
+const CREDENTIAL_FIELD_LABELS: Record<string, string> = {
+  email: 'Email',
+  username: 'Username',
+  password: 'Password',
+  pin: 'PIN',
+  profile: 'Profil',
+  code: 'Kode',
+  link: 'Link',
+  note: 'Catatan',
+  info: 'Info',
+};
+
+function formatCredentialFieldLabel(key: string): string {
+  const lower = key.trim().toLowerCase();
+  if (CREDENTIAL_FIELD_LABELS[lower]) {
+    return CREDENTIAL_FIELD_LABELS[lower];
+  }
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+/**
+ * Memformat array credentials dari response Xaviera POST /v1/products/order
+ * menjadi teks WhatsApp yang rapi serta mengekstrak email & password.
+ */
+export function formatXavieraCredentials(rawCredentials: unknown): {
+  credentialsText: string;
+  accountEmail: string;
+  accountPassword: string;
+  normalizedItems: XavieraCredentialItem[];
+} {
+  const list = Array.isArray(rawCredentials)
+    ? rawCredentials
+    : rawCredentials && typeof rawCredentials === 'object'
+      ? [rawCredentials]
+      : typeof rawCredentials === 'string' && rawCredentials.trim()
+        ? [rawCredentials.trim()]
+        : [];
+
+  const normalizedItems: XavieraCredentialItem[] = [];
+  const emails: string[] = [];
+  const passwords: string[] = [];
+  const blocks: string[] = [];
+
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
+    if (typeof item === 'string') {
+      const cleanStr = item.trim();
+      if (!cleanStr) continue;
+      normalizedItems.push({ info: cleanStr });
+      blocks.push(list.length > 1 ? `*Akun #${i + 1}:*\n${cleanStr}` : cleanStr);
+      continue;
+    }
+
+    if (!item || typeof item !== 'object') continue;
+    const obj = item as Record<string, unknown>;
+    normalizedItems.push(obj as XavieraCredentialItem);
+
+    const emailVal =
+      typeof obj.email === 'string' && obj.email.trim()
+        ? obj.email.trim()
+        : typeof obj.username === 'string' && obj.username.trim()
+          ? obj.username.trim()
+          : '';
+    if (emailVal) emails.push(emailVal);
+
+    const passVal =
+      typeof obj.password === 'string' && obj.password.trim() ? obj.password.trim() : '';
+    if (passVal) passwords.push(passVal);
+
+    const orderedKeys = [
+      'email',
+      'username',
+      'password',
+      'pin',
+      'profile',
+      'code',
+      'link',
+      'note',
+      'info',
+      ...Object.keys(obj).filter(
+        (k) => !['email', 'username', 'password', 'pin', 'profile', 'code', 'link', 'note', 'info'].includes(k)
+      ),
+    ];
+
+    const seen = new Set<string>();
+    const lines: string[] = [];
+    for (const key of orderedKeys) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const val = obj[key];
+      if (val === undefined || val === null) continue;
+      const strVal = String(val).trim();
+      if (!strVal) continue;
+      lines.push(`• *${formatCredentialFieldLabel(key)}:* ${strVal}`);
+    }
+
+    if (lines.length > 0) {
+      if (list.length > 1) {
+        blocks.push(`*Akun #${i + 1}:*\n${lines.join('\n')}`);
+      } else {
+        blocks.push(lines.join('\n'));
+      }
+    }
+  }
+
+  return {
+    credentialsText: blocks.join('\n\n'),
+    accountEmail: emails.join(', '),
+    accountPassword: passwords.join(', '),
+    normalizedItems,
+  };
+}
+
+/**
+ * Mencari productId dan variantId resmi Xaviera berdasarkan nama produk & varian
+ * sebagai fallback bila data order belum menyimpan xavieraProductId.
+ */
+export async function resolveXavieraProductTarget(
+  config: CommandsConfig,
+  productName: string,
+  variantName: string
+): Promise<{ productId?: string; variantId?: string }> {
+  const variants = await getProductVariants(productName, config);
+  if (!variants.length) return {};
+
+  const pLower = (productName || '').trim().toLowerCase();
+  const vLower = (variantName || '').trim().toLowerCase();
+
+  const exactMatch =
+    variants.find(
+      (v) =>
+        (v.name || '').trim().toLowerCase() === pLower &&
+        (v.variant || '').trim().toLowerCase() === vLower
+    ) ||
+    variants.find((v) => (v.variant || '').trim().toLowerCase() === vLower) ||
+    variants[0];
+
+  if (!exactMatch) return {};
+  return {
+    productId: exactMatch.productId || exactMatch.id,
+    variantId: exactMatch.xavieraVariantId,
+  };
+}
+
+/**
+ * Membuat order produk akun premium ke API Xaviera: POST /v1/products/order
+ */
+export async function createXavieraProductOrder(
+  config: CommandsConfig,
+  params: {
+    productId: string;
+    variantId?: string;
+    qty?: number;
+    couponCode?: string;
+  }
+): Promise<XavieraProductOrderResponse> {
+  const apiKey = config.xavieraApiKey?.trim();
+  const baseUrl = (config.xavieraBaseUrl?.trim() || 'https://xavierastore.com/api/v1').replace(/\/+$/, '');
+
+  if (!apiKey) {
+    return { success: false, error: 'API Key Xaviera belum dikonfigurasi.' };
+  }
+
+  const productId = (params.productId || '').trim();
+  if (!productId) {
+    return { success: false, error: 'Product ID Xaviera tidak tersedia.' };
+  }
+
+  const payload: Record<string, unknown> = {
+    productId,
+    qty: params.qty && params.qty > 0 ? Math.round(params.qty) : 1,
+  };
+  if (params.variantId && params.variantId.trim()) {
+    payload.variantId = params.variantId.trim();
+  }
+  if (params.couponCode && params.couponCode.trim()) {
+    payload.couponCode = params.couponCode.trim();
+  }
+
+  try {
+    const res = await safeExternalFetch(`${baseUrl}/products/order`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json().catch(() => ({} as Record<string, any>));
+    if (!res.ok || !json?.order) {
+      const errMsg =
+        (typeof json?.error === 'string' && json.error.trim()) ||
+        (typeof json?.message === 'string' && json.message.trim()) ||
+        `Gagal melakukan order ke Xaviera (HTTP ${res.status})`;
+      return {
+        success: false,
+        status: res.status,
+        error: errMsg,
+      };
+    }
+
+    const orderObj = json.order;
+    const { normalizedItems } = formatXavieraCredentials(orderObj.credentials);
+
+    return {
+      success: true,
+      status: res.status,
+      order: {
+        id: String(orderObj.id || ''),
+        productName: String(orderObj.productName || ''),
+        credentials: normalizedItems,
+        total: Number(orderObj.total || 0),
+      },
+      saldo: json.saldo !== undefined ? Number(json.saldo) : undefined,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Gagal menghubungi endpoint order Xaviera.',
+    };
+  }
+}
+
+/**
+ * Mengambil detail / kredensial order akun premium yang pernah dibuat: GET /v1/orders/{id}
+ */
+export async function getXavieraOrderDetail(
+  config: CommandsConfig,
+  supplierOrderId: string
+): Promise<XavieraProductOrderResponse> {
+  const apiKey = config.xavieraApiKey?.trim();
+  const baseUrl = (config.xavieraBaseUrl?.trim() || 'https://xavierastore.com/api/v1').replace(/\/+$/, '');
+
+  if (!apiKey) {
+    return { success: false, error: 'API Key Xaviera belum dikonfigurasi.' };
+  }
+  const cleanId = (supplierOrderId || '').trim();
+  if (!cleanId) {
+    return { success: false, error: 'Order ID Xaviera kosong.' };
+  }
+
+  try {
+    const res = await safeExternalFetch(`${baseUrl}/orders/${encodeURIComponent(cleanId)}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+      },
+    });
+    const json = await res.json().catch(() => ({} as Record<string, any>));
+    const orderObj = json?.order || json?.data;
+    if (!res.ok || !orderObj) {
+      return {
+        success: false,
+        status: res.status,
+        error: json?.error || json?.message || `Gagal memuat detail order Xaviera (HTTP ${res.status})`,
+      };
+    }
+    const { normalizedItems } = formatXavieraCredentials(orderObj.credentials);
+    return {
+      success: true,
+      status: res.status,
+      order: {
+        id: String(orderObj.id || cleanId),
+        productName: String(orderObj.productName || ''),
+        credentials: normalizedItems,
+        total: Number(orderObj.total || 0),
+      },
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Gagal mengambil detail order Xaviera.',
+    };
+  }
+}
+
 
 
